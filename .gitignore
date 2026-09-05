@@ -17,6 +17,7 @@ databases/*.db*
 *.o
 *.o.dSYM
 /dist-client
+/server/static/data
 
 # Typescript build artifacts
 .*-dist/

@@ -12,9 +12,19 @@ Pokémon Showdown
 > * [DATA_GUIDE.md](./DATA_GUIDE.md) — how to add your own Pokémon, moves, abilities, items and Mega Stones
 > * [assets/README.md](./assets/README.md) — how to replace the placeholder art
 >
+> **Getting started**
+>
+> ```bash
+> node build
+> node pokemon-showdown start --no-security
+> ```
+>
+> Then open **http://localhost:8000** — the server serves its own Teambuilder
+> and battle UI showing only the custom game. Press *Start battle* to play a
+> bot, or challenge a friend by name.
+>
 > Formats: `[Fakemon] Singles`, `[Fakemon] Doubles`, `[Fakemon] Random Battle`,
 > `[Fakemon] Random Doubles Battle` and two Custom Games.
-> Play a bot with `/fakemonbot`, a friend with `/fakemonchallenge`.
 
 
 Navigation: [Website][1] | **Server repository** | [Client repository][2] | [Dex repository][3]

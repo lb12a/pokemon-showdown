@@ -341,6 +341,8 @@ export class ServerStream extends Streams.ObjectReadWriteStream<string> {
 			const cssServer = new StaticServer('./config');
 			const avatarServer = new StaticServer('./config/avatars');
 			const staticServer = new StaticServer('./server/static');
+			// Artwork for the custom game; see assets/README.md.
+			const assetServer = new StaticServer('./assets');
 			const staticRequestHandler = (req: http.IncomingMessage, res: http.ServerResponse) => {
 				// console.log(`static rq: ${req.socket.remoteAddress}:${req.socket.remotePort} -> ${req.socket.localAddress}:${req.socket.localPort} - ${req.method} ${req.url} ${req.httpVersion} - ${req.rawHeaders.join('|')}`);
 				req.resume();
@@ -356,14 +358,24 @@ export class ServerStream extends Streams.ObjectReadWriteStream<string> {
 						} else if (req.url.startsWith('/avatars/')) {
 							req.url = req.url.slice(8);
 							server = avatarServer;
+						} else if (req.url.startsWith('/assets/')) {
+							req.url = req.url.slice(7);
+							server = assetServer;
 						} else if (roomidRegex.test(req.url)) {
 							req.url = '/';
 						}
 					}
 
+					const isAsset = server === assetServer;
 					void server.serve(req, res, e => {
 						if (e.status === 404) {
-							void staticServer.serveFile('404.html', 404, {}, req, res);
+							// Artwork that has not been drawn yet falls back to the
+							// placeholder, so the UI never shows a broken image.
+							if (isAsset) {
+								void assetServer.serveFile('placeholder.png', 200, {}, req, res);
+							} else {
+								void staticServer.serveFile('404.html', 404, {}, req, res);
+							}
 							return true;
 						}
 					});

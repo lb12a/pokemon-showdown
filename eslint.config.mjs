@@ -12,6 +12,8 @@ export default configure([
 			"data/**/learnsets.ts",
 			// machine-generated from the source PDFs/xlsx by tools/fakemon/build.py
 			"data/mods/fakemon/generated/",
+			// generated from the dex during `node build`
+			"server/static/data/",
 			"tools/set-import/importer.js",
 			"tools/set-import/sets",
 			"tools/modlog/converter.js",
@@ -39,6 +41,17 @@ export default configure([
 		rules: {
 			"@stylistic/max-len": "off",
 			"no-shadow": "off", // mostly just too lazy, someone should fix this sometime
+		},
+	},
+	{
+		// The built-in web client runs in a browser, not in Node.
+		name: "Fakemon web client",
+		files: ["server/static/*.js"],
+		languageOptions: {
+			globals: { ...globals.builtin, ...globals.browser },
+		},
+		rules: {
+			"no-undef": "off", // its own globals are defined across its script tags
 		},
 	},
 	{

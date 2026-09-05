@@ -179,25 +179,71 @@ derived deterministically, so regenerating never reshuffles the dex.
 6. **`Metafly/Formen>Käfer+[Elektro,Fee,Feuer,Eis,Gift]`** was expanded into five
    formes: Metafly (Bug/Electric), Metafly-Fairy, -Fire, -Ice, -Poison.
 
-## 9. Known limitations
+## 9. The built-in web client
 
-* **The Teambuilder and battle UI live in a different repository.** This repo is
-  the *server*; the client is `smogon/pokemon-showdown-client`. The server is
-  fully converted, and `node tools/fakemon/export-client.js` writes drop-in
-  replacements for the client's data files (`dist-client/data/`) so the
-  Teambuilder shows only Fakemon. Copy them over
-  `play.pokemonshowdown.com/data/` in the client repo. Until you do, a stock
-  client will still *display* original names in its Teambuilder — but the server
-  rejects any such team, so nothing illegal can reach a battle.
-* **Mega UI.** The server emits the standard `|-mega|` protocol message for both
-  Mega paths, so a client shows the Mega animation and the new forme. A stoneless
-  Mega also emits a chat line naming the +20. Showing "Mega available" as a
-  button before you commit is client-side; the request already carries
-  `canMegaEvo: true` for every Pokémon, so the existing Mega button lights up.
-* **Three types.** Thirteen Pokémon have three types, exactly as the PDF
-  specifies. The engine handles this correctly; some client UIs only draw two
-  type icons.
-* **Sprites are placeholders.** See `assets/README.md`.
+Opening the server used to redirect the browser to `play.pokemonshowdown.com`,
+which ships its own dex - that is why the Teambuilder still showed the original
+Pokemon. The server now serves **its own client** from `server/static/`, so
+`http://localhost:8000` is the custom game and nothing else.
+
+* `index.html` / `fakemon.css` / `fakemon.js` - a dependency-free client that
+  speaks the normal Showdown protocol over the server's own SockJS endpoint.
+* `server/static/data/fakemon-data.js` - the dex the client uses. `node build`
+  regenerates it from `data/mods/fakemon/`, so the client can never drift out of
+  sync, and it contains **no original data at all** (a test asserts this).
+* `/assets/…` is served from `assets/`, and a missing image falls back to
+  `placeholder.png`, so the UI never shows a broken picture.
+
+What it does:
+
+* **Teambuilder** - only custom Pokemon, moves, abilities, items and Mega
+  Stones. Teams are saved in the browser, and can be edited, duplicated and
+  deleted. A new player starts with a generated, legal team so they can press
+  "Start battle" immediately. Illegal sets are called out before you battle.
+* **Mega display** (spec 13) - every slot says what Mega Evolution will do:
+  with its own stone, the resulting forme, its stats and its Mega Ability;
+  without one, "+20 to every base stat". In battle the Mega button spells out
+  the same thing and shows when it has been used up.
+* **Battle UI** - move buttons with type, power and PP, a switch grid, HP bars,
+  status and type badges, a MEGA badge, and a battle log. In doubles it collects
+  one choice per active Pokemon and lets you click an opposing Pokemon to target
+  it; spread moves skip the target step.
+* **Play menu** - name the bot, pick the format, difficulty and whose team the
+  bot uses; or challenge a friend by name and accept their challenge.
+* **Dex** - search every Pokemon, move, ability and item in the game.
+
+### Bugs found and fixed while testing this
+
+1. `/fakemonbot` crashed with `User not found on … battle creation`: a battle
+   slot without a user was not something `RoomBattle` supported. It now takes a
+   `bots` option, fills those slots itself and treats them as present.
+2. Four custom moves were unreachable because an inherited alias resolved first
+   (`adapt` -> `adaptability`); the mod now installs a filtered alias table.
+3. The client sent teams with no EVs, which the validator rejects. Sets now
+   carry a real spread, pickable in the Teambuilder (auto / physical / special /
+   fast / bulky).
+4. In doubles the client only chose for the first Pokemon. It now collects a
+   choice per slot, passes for fainted or empty slots, and passes when there is
+   nothing left to switch to.
+5. Challenges never appeared: this server build delivers them as PMs, not as
+   `updatechallenges`. Both are handled now.
+
+Verified in a real browser (Chromium): singles, doubles and player-vs-player all
+play from the first click to a winner with zero JavaScript errors.
+
+## 9a. Known limitations
+
+* **Sprites are placeholders.** Every Pokemon renders as the placeholder until
+  you drop real art into `assets/`. See `assets/README.md`.
+* **The official Showdown client** can still connect to this server, and its own
+  Teambuilder will show original Pokemon. It cannot get them into a battle - the
+  server rejects such teams - but for the intended experience use the built-in
+  client at `http://localhost:8000`. `node tools/fakemon/export-client.js` also
+  writes drop-in data files for the separate `pokemon-showdown-client` repo if
+  you would rather use that.
+* **Three types.** Thirteen Pokemon have three types, exactly as the PDF
+  specifies. The engine handles it; the client shows all three.
+* **Team preview** picks the default order; there is no drag-to-reorder yet.
 * **Balance is a first pass.** The data check flags no broken combinations, but
   884 moves have not been playtested against each other.
 
@@ -219,6 +265,9 @@ data/mods/fakemon/            the whole custom game
   generated/                  produced by tools/fakemon/build.py
 data/random-battles/fakemon/teams.ts   role-aware random teams
 server/chat-plugins/fakemon.ts         /fakemonbot, /fakemonchallenge, …
+server/static/index.html               the built-in web client
+server/static/fakemon.css              its styling
+server/static/fakemon.js               teambuilder, play menu and battle UI
 config/custom-formats.ts               the six Fakemon formats
 test/sim/fakemon/system.js             the test suite
 tools/fakemon/                         importers, generator, check, exporter
@@ -230,7 +279,10 @@ DATA_GUIDE.md                          how to add your own content
 
 ```
 sim/dex.ts             let a mod install its own alias table (3 lines)
-server/room-battle.ts  generic BattleBot interface so a slot can be an AI
+server/room-battle.ts  generic BattleBot interface, and a `bots` battle option
+                       so a battle slot can be played by an AI
+server/sockets.ts      serve assets/ , with a placeholder fallback
+build                  regenerate the client's dex after compiling
 eslint.config.mjs      ignore generated data and dist-client
 test/sim/data.js       exempt the fakemon mod from the "no imports" rule,
                        like gen9ssb, because its data is modular on purpose
@@ -248,7 +300,10 @@ npx tsc --noEmit                 # clean
 node tools/fakemon/export-client.js    # client data for the Teambuilder
 ```
 
-Then start the server and try:
+Then start the server and open **http://localhost:8000** in a browser - that is
+the custom client, no external site involved.
+
+The chat commands still work if you prefer typing:
 
 ```
 /fakemonbot singles, ShadowMaster, random, hard

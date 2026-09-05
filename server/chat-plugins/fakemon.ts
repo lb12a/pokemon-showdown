@@ -76,28 +76,28 @@ export const commands: Chat.ChatCommands = {
 			return this.errorReply(`Team mode must be one of: random, mirror, swap.`);
 		}
 
+		// A `team: 'random'` format builds both teams itself.
+		const generatesTeams = !!format.team;
 		const ownTeam = user.battleSettings.team;
-		if (teamMode !== 'random' && !ownTeam) {
+		if (teamMode !== 'random' && !generatesTeams && !ownTeam) {
 			return this.errorReply(
 				`Pick a team in the Teambuilder first - "${teamMode}" needs a team to copy.`
 			);
 		}
 
-		const playerTeam = teamMode === 'swap' ? randomFakemonTeam(format) : (ownTeam || undefined);
-		const botTeam = teamMode === 'random' ? randomFakemonTeam(format) : ownTeam;
+		const playerTeam = generatesTeams ? undefined :
+			(teamMode === 'swap' ? randomFakemonTeam(format) : (ownTeam || undefined));
+		const botTeam = generatesTeams ? undefined :
+			(teamMode === 'random' ? randomFakemonTeam(format) : ownTeam);
 
 		const battleRoom = Rooms.createBattle({
 			format: format.id,
 			players: [{ user, team: playerTeam, hidden: false, inviteOnly: false }],
+			// p2 is played by the AI: RoomBattle fills the slot and drives it.
+			bots: { p2: { name: botName, team: botTeam, bot: new FakemonBot({ name: botName, difficulty }) } },
 			isPrivate: true,
 		});
 		if (!battleRoom) return this.errorReply(`Could not start the battle.`);
-
-		const battle = battleRoom.battle!;
-		const bot = new FakemonBot({ name: botName, difficulty });
-		battle.addPlayer(botName, { team: botTeam, rating: 0 });
-		bot.setSide('p2');
-		battle.bots['p2'] = bot;
 
 		this.sendReply(
 			`Started a ${format.name} battle against ${botName} (${difficulty}, ${teamMode} team).`

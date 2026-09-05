@@ -290,12 +290,19 @@ automatically. `assets/manifest.json` lists all 733 expected paths, and
 
 ## Updating the Teambuilder
 
-The Teambuilder is part of the separate client repository. After changing data:
+The built-in client at `http://localhost:8000` reads
+`server/static/data/fakemon-data.js`, which **`node build` regenerates for you**.
+So after changing any data, just run:
 
 ```bash
-node tools/fakemon/export-client.js
+node build
 ```
 
-then copy `dist-client/data/*.js` over `play.pokemonshowdown.com/data/` in your
-copy of `pokemon-showdown-client`. The server is always the authority — an
-out-of-date client cannot get an illegal team into a battle.
+and reload the page. Nothing else is needed.
+
+If you would rather use the separate `pokemon-showdown-client` repository,
+`node tools/fakemon/export-client.js` also writes drop-in replacements to
+`dist-client/data/`; copy them over `play.pokemonshowdown.com/data/` there.
+
+Either way the server is the authority — an out-of-date client cannot get an
+illegal team into a battle.

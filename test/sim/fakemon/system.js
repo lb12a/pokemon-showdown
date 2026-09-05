@@ -337,6 +337,54 @@ describe('Fakemon: team validation', () => {
 	});
 });
 
+describe('Fakemon: built-in web client', () => {
+	const fs = require('fs');
+	const path = require('path');
+	const bundlePath = path.resolve(__dirname, '../../../server/static/data/fakemon-data.js');
+
+	it('should ship a data bundle for the client', () => {
+		assert(fs.existsSync(bundlePath),
+			'run `node build` to generate server/static/data/fakemon-data.js');
+	});
+
+	it('should expose only custom data to the client', () => {
+		const source = fs.readFileSync(bundlePath, 'utf8');
+		const bundle = JSON.parse(source.slice(source.indexOf('{'), source.lastIndexOf('}') + 1));
+
+		assert.equal(Object.keys(bundle.pokedex).length, FakemonIndex.species.length);
+		for (const id of ['pikachu', 'charizard', 'garchomp']) {
+			assert.false(!!bundle.pokedex[id], `${id} must not reach the client`);
+		}
+		for (const id of ['thunderbolt', 'earthquake', 'protect']) {
+			assert.false(!!bundle.moves[id], `${id} must not reach the client`);
+		}
+		for (const id of ['levitate', 'intimidate']) {
+			assert.false(!!bundle.abilities[id], `${id} must not reach the client`);
+		}
+		for (const id of ['leftovers', 'lifeorb']) {
+			assert.false(!!bundle.items[id], `${id} must not reach the client`);
+		}
+		// Everything the teambuilder offers must be real, learnable data.
+		for (const [speciesId, moveIds] of Object.entries(bundle.learnsets)) {
+			assert(bundle.pokedex[speciesId], `learnset for unknown species ${speciesId}`);
+			for (const moveId of moveIds) {
+				assert(bundle.moves[moveId], `${speciesId} learns unknown move ${moveId}`);
+			}
+		}
+		// Final evolutions must be distinguishable, or the client cannot build teams.
+		const finals = Object.values(bundle.pokedex)
+			.filter(species => !species.battleOnly && !species.evos?.length);
+		assert(finals.length > 20, `expected many final evolutions, found ${finals.length}`);
+	});
+
+	it('should not redirect the browser to the official client', () => {
+		const html = fs.readFileSync(
+			path.resolve(__dirname, '../../../server/static/index.html'), 'utf8');
+		assert.false(/psim\.us|play\.pokemonshowdown\.com/.test(html),
+			'the served page must be our own client');
+	});
+});
+
 describe('Fakemon: random teams and the bot', () => {
 	it('should build valid random teams for singles and doubles', () => {
 		for (const formatid of ['fakemonrandombattle', 'fakemonrandomdoublesbattle']) {
