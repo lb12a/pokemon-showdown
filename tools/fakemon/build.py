@@ -277,17 +277,26 @@ TARGET_FIXUPS = {
     'submissionhold': "'normal'", 'rust': "'normal'", 'algaebloom': "'normal'",
     # a heal aimed at "the target" is aimed at the team, not at the opponent
     'nectarheal': "'adjacentAllyOrSelf'",
-    # "Ignores effects of the target's weight-based moves" is a self buff
-    'floodrush': "'self'",
 }
+
+
+# A damaging move has to be able to reach a Pokemon. Several effect rules were
+# written for status moves and set one of these targets along with their
+# payload; on a move that also deals damage the attack would then hit nothing
+# (or the user), so the target is corrected and the payload moves into `self`.
+NON_ATTACKING_TARGETS = {"'self'", "'allySide'", "'allyTeam'", "'foeSide'", "'all'"}
 
 
 def resolve_target(move, spec):
     """The target a move really needs, not the one the generic rule guesses."""
     move_id = toID(move['name'])
+    damaging = move['category'] != 'Status'
     if move_id in TARGET_FIXUPS:
-        return TARGET_FIXUPS[move_id]
+        fixed = TARGET_FIXUPS[move_id]
+        return "'normal'" if damaging and fixed in NON_ATTACKING_TARGETS else fixed
     if spec.fields.get('target'):
+        if damaging and spec.fields['target'] in NON_ATTACKING_TARGETS:
+            return "'normal'"
         return spec.fields['target']
     f = spec.fields
     if f.get('onHitField'):
@@ -359,7 +368,13 @@ def effect_text_gaps(move):
 
 def build_move(num, move, source):
     spec = effects.compile_effect(move, move.get('effect'))
+    rule_target = spec.fields.get('target')
     spec.fields['target'] = resolve_target(move, spec)
+    # True when the rule aimed its payload at the user or a side, but the move
+    # deals damage and had to be pointed at somebody else.
+    redirected = (move['category'] != 'Status' and
+                  rule_target in NON_ATTACKING_TARGETS and
+                  spec.fields['target'] != rule_target)
     name = move['name']
     fields = {}
     fields['num'] = num
@@ -439,6 +454,23 @@ def build_move(num, move, source):
     # Status move it would be dead code - run the same body from `onHit`.
     if move['category'] == 'Status' and 'onAfterHit' in fields and 'onHit' not in fields:
         fields['onHit'] = fields.pop('onAfterHit')
+
+    if redirected:
+        # `volatileStatus` and an ally-side `sideCondition` land on the move's
+        # target, which is now a foe - move them onto the user instead.
+        selfish = {}
+        for key in ('volatileStatus', 'selfSwitch'):
+            if key in fields:
+                selfish[key] = fields.pop(key)
+        if 'sideCondition' in fields and rule_target in ("'allySide'", "'allyTeam'", "'self'"):
+            selfish['sideCondition'] = fields.pop('sideCondition')
+        if selfish:
+            inner = ', '.join(f'{k}: {v}' for k, v in selfish.items())
+            existing = fields.get('self')
+            fields['self'] = (existing[:-2] + ', ' + inner + ' }') if existing else '{ ' + inner + ' }'
+        # `onHitField` only runs for a field-wide target.
+        if 'onHitField' in fields and 'onHit' not in fields:
+            fields['onHit'] = fields.pop('onHitField')
 
     fields['target'] = spec.fields['target']
     fields['type'] = f'"{move["type"]}"'
@@ -578,6 +610,157 @@ def build_species(families):
     return out
 
 
+# ---------------------------------------------------------------------------
+# Design corrections
+# ---------------------------------------------------------------------------
+# The importer reads the dex PDF literally. These entries are deliberate
+# changes made after that import, applied to the generated species *before*
+# learnsets and tiers are built, so a re-typed Pokemon gets STAB for the type
+# it actually has.
+SPECIES_FIXUPS = {
+    # Two coats with identical stats; each grows into the evolution that
+    # matches its typing.
+    'Tigitz': {
+        'types': ['Normal', 'Fighting'],
+        'baseForme': 'Brawler',
+        'evos': ['Tigraxe'],
+    },
+    # Tigraith and Tigraxe are mirror images: the same spread with the physical
+    # and special halves swapped, so the pair covers both sides of one idea.
+    'Tigraith': {
+        'types': ['Fairy', 'Ghost'],
+        'baseStats': {'hp': 75, 'atk': 60, 'def': 70, 'spa': 140, 'spd': 85, 'spe': 90},
+        'prevo': 'Tigitz-Fae',
+        'evoLevel': 36,
+    },
+    'Tigraxe': {
+        'types': ['Fighting', 'Fire'],
+        'baseStats': {'hp': 75, 'atk': 140, 'def': 85, 'spa': 60, 'spd': 70, 'spe': 90},
+        'prevo': 'Tigitz',
+        'evoLevel': 36,
+    },
+    # Anxious (+3 priority under 25% HP) is a panicking-newborn trait: only the
+    # first stage of the line keeps it.
+    'Pompash': {'abilities': {'0': 'Rooted', '1': 'Fresh Air'}},
+    'Pompomble': {'abilities': {'0': 'Rooted', '1': 'Fresh Air'}},
+}
+
+# Formes picked in the team builder rather than reached in battle. Each one
+# inherits its base forme's entry and overrides what differs.
+EXTRA_FORMES = [
+    ('Tigitz', 'Fae', {
+        'types': ['Normal', 'Fairy'],
+        'evos': ['Tigraith'],
+    }),
+    # The crown and the axe are the legendary states: more of the offensive
+    # stat than the base forme ever reaches, plus a third type.
+    ('Tigraith', 'Crowned', {
+        'types': ['Fairy', 'Ghost', 'Ice'],
+        'baseStats': {'hp': 85, 'atk': 65, 'def': 85, 'spa': 165, 'spd': 100, 'spe': 100},
+    }),
+    # Same total as Crowned, with every point of bulk spent on speed and
+    # special offence.
+    ('Tigraith', 'Hypercrowned', {
+        'types': ['Fairy', 'Ghost', 'Ice'],
+        'baseStats': {'hp': 70, 'atk': 65, 'def': 60, 'spa': 190, 'spd': 70, 'spe': 145},
+    }),
+    ('Tigraxe', 'Axed', {
+        'types': ['Fighting', 'Fire', 'Steel'],
+        'baseStats': {'hp': 85, 'atk': 165, 'def': 100, 'spa': 65, 'spd': 85, 'spe': 100},
+    }),
+    ('Tigraxe', 'Hyperaxed', {
+        'types': ['Fighting', 'Fire', 'Steel'],
+        'baseStats': {'hp': 70, 'atk': 190, 'def': 70, 'spa': 65, 'spd': 60, 'spe': 145},
+    }),
+]
+
+# Three coats told apart by a handful of stat points rather than by typing or
+# ability. The first entry is the line's default forme, so each line has
+# exactly three variants and not a nameless fourth. Twelve points move into the
+# coat's own stat and six come out of each of the other two, so every forme
+# keeps the total it had.
+DOG_COATS = [
+    ('Bobtail', {'def': 12, 'atk': -6, 'spe': -6}),
+    ('Beagle', {'atk': 12, 'def': -6, 'spe': -6}),
+    ('Dalmatian', {'spe': 12, 'atk': -6, 'def': -6}),
+]
+DOG_LINES = ['Budpup', 'Budruff', 'Mudruff']
+
+
+def shift_stats(stats, deltas):
+    out = dict(stats)
+    for stat, delta in deltas.items():
+        out[stat] += delta
+    return out
+
+
+def apply_species_fixups(species):
+    """Rewrite generated species and append the hand-designed formes."""
+    by_name = {sp['name']: sp for sp in species}
+
+    for name, changes in SPECIES_FIXUPS.items():
+        if name not in by_name:
+            raise SystemExit(f'SPECIES_FIXUPS names an unknown Pokemon: {name}')
+        by_name[name].update(changes)
+
+    def new_forme(base_name, forme_name, changes):
+        base = by_name[base_name]
+        entry = dict(base)
+        entry.update({
+            'name': f'{base_name}-{forme_name}',
+            'baseSpecies': base_name,
+            'forme': forme_name,
+            'otherFormes': None, 'formeOrder': None,
+        })
+        entry.pop('prevo', None)
+        entry.pop('evoLevel', None)
+        entry.pop('evos', None)
+        entry.update(changes)
+        return entry
+
+    extra = []
+    formes_of = {}
+    for base_name, forme_name, changes in EXTRA_FORMES:
+        if base_name not in by_name:
+            raise SystemExit(f'EXTRA_FORMES names an unknown Pokemon: {base_name}')
+        entry = new_forme(base_name, forme_name, changes)
+        formes_of.setdefault(base_name, []).append(entry['name'])
+        extra.append(entry)
+
+    # The dog lines: the base entry becomes the first coat, the other two are
+    # formes that evolve into the matching coat of the next stage.
+    for line in DOG_LINES:
+        base = by_name.get(line)
+        if not base:
+            raise SystemExit(f'DOG_LINES names an unknown Pokemon: {line}')
+        default_name, default_deltas = DOG_COATS[0]
+        plain_stats = dict(base['baseStats'])
+        base['baseForme'] = default_name
+        base['baseStats'] = shift_stats(plain_stats, default_deltas)
+        for coat, deltas in DOG_COATS[1:]:
+            entry = new_forme(line, coat, {'baseStats': shift_stats(plain_stats, deltas)})
+            if base.get('prevo'):
+                entry['prevo'] = f"{base['prevo']}-{coat}"
+                entry['evoLevel'] = base.get('evoLevel', 16)
+            if base.get('evos'):
+                entry['evos'] = [f'{evo}-{coat}' for evo in base['evos']]
+            formes_of.setdefault(line, []).append(entry['name'])
+            extra.append(entry)
+
+    for base_name, formes in formes_of.items():
+        by_name[base_name]['otherFormes'] = formes
+        by_name[base_name]['formeOrder'] = [base_name] + formes
+
+    # Keep each forme next to the Pokemon it belongs to.
+    out = []
+    for sp in species:
+        out.append(sp)
+        for entry in extra:
+            if entry['baseSpecies'] == sp['name']:
+                out.append(entry)
+    return out
+
+
 def render_species(entry):
     fields = {}
     fields['num'] = entry['num']
@@ -586,6 +769,11 @@ def render_species(entry):
     if entry.get('baseSpecies'):
         fields['baseSpecies'] = json.dumps(entry['baseSpecies'])
         fields['forme'] = json.dumps(entry['forme'])
+    if entry.get('baseForme'):
+        fields['baseForme'] = json.dumps(entry['baseForme'])
+    if entry.get('otherFormes'):
+        fields['otherFormes'] = json.dumps(entry['otherFormes'])
+        fields['formeOrder'] = json.dumps(entry['formeOrder'])
     fields['baseStats'] = ts_value(entry['baseStats'])
     fields['abilities'] = '{ ' + ', '.join(
         f'{k}: {json.dumps(v)}' for k, v in entry['abilities'].items()) + ' }'
@@ -620,8 +808,123 @@ def move_role(entry):
     return 'physical' if entry['category'] == 'Physical' else 'special'
 
 
-def build_learnsets(species, generic, signatures):
+# ---------------------------------------------------------------------------
+# Ability synergy
+# ---------------------------------------------------------------------------
+# Several abilities only pay off with a particular kind of move - Slowmofly
+# stretches the field effects its owner sets, Trunk Launcher wants a bullet
+# move, Timber Fall wants something weight-based. Generating a learnset purely
+# from typing and stats left plenty of those Pokemon with no way to use their
+# own ability, so every entry below names what its ability rewards and the
+# learnset builder guarantees a few of them.
+#
+# Kinds:
+#   type:X      moves of that type          category:X  Physical / Special / Status
+#   flag:X      a move flag (contact, sound, bullet, bite, punch, slicing)
+#   weight      weight-based moves          field       sets weather/terrain/room/screen/hazard
+#   priority    positive priority           recoil      has recoil
+#   multihit    hits several times          protect     a protecting move
+#   spinning    rolling or spinning         lowbp       60 base power or less
+#   paralyze    can paralyse
+ABILITY_SYNERGY = {
+    'acidicpigment': ['type:Poison'],
+    'aerodynamicheavyweight': ['weight'],
+    'aftershock': ['type:Ground'],
+    'ampedup': ['paralyze'],
+    'athenasdecree': ['type:Flying'],
+    'blastproof': ['recoil'],
+    'bonegrip': ['type:Ghost'],
+    'brickwall': ['protect'],
+    'centrifugalforce': ['spinning', 'weight'],
+    'chloroplastmind': ['type:Psychic', 'field'],
+    'cinderboost': ['type:Fire'],
+    'conductortongue': ['type:Electric'],
+    'conestorage': ['flag:bullet'],
+    'cooking': ['flag:contact'],
+    'corrosivegrip': ['flag:contact'],
+    'deeprootreflex': ['type:Ground'],
+    'desertgrappler': ['field'],
+    'echodrain': ['flag:sound'],
+    'electriccarousel': ['type:Electric'],
+    'electricteeth': ['flag:bite'],
+    'firestarter': ['type:Fire'],
+    'fossilizedwings': ['type:Flying'],
+    'grassstarter': ['type:Grass'],
+    'heliumvoice': ['flag:sound'],
+    'huntinginstinct': ['flag:contact'],
+    'hydromechanics': ['type:Water'],
+    'inductioncharge': ['type:Electric'],
+    'inflaming': ['type:Fire'],
+    'kamikaze': ['recoil'],
+    'mindfocus': ['category:Status'],
+    'mudlover': ['type:Water'],
+    'mudrush': ['type:Ground', 'field'],
+    'nibble': ['flag:contact'],
+    'overcharge': ['type:Electric'],
+    'pinpointneedle': ['flag:slicing'],
+    'powergrid': ['type:Electric'],
+    'rainbowcake': ['category:Special'],
+    'resonanceshell': ['field'],
+    'seismicforce': ['type:Ground', 'flag:punch'],
+    'slicingmassacre': ['category:Special'],
+    'slowmofly': ['field'],
+    'sludgepile': ['flag:bite'],
+    'sneakysting': ['priority'],
+    'solarcharge': ['flag:sound', 'type:Electric', 'field'],
+    'spatialcatalyst': ['field'],
+    'staticflutter': ['type:Electric', 'type:Bug'],
+    'sugarpile': ['flag:contact'],
+    'symphonicshield': ['multihit'],
+    'thundertail': ['type:Electric'],
+    'timberfall': ['weight'],
+    'toxicpalette': ['type:Normal'],
+    'trunklauncher': ['flag:bullet'],
+    'vanishstrike': ['lowbp'],
+    'waterstarter': ['type:Water'],
+}
+
+FIELD_KEYS = ('weather', 'pseudoWeather', 'sideCondition', 'terrain', 'onHitField')
+SPINNING_RE = re.compile(r'roll|spin|twirl|somersault|whirl|cyclone|tumble|wheel|rotor|gyro|drill')
+SLICING_RE = re.compile(r'slash|cut|blade|sever|scythe|razor|shear|saw|slice|claw|fang|edge|beak|peck')
+
+
+def synergy_match(kind, mid, fields, raw, weight_moves):
+    """Does this move give an ability with `kind` something to work with?"""
+    flags = str(fields.get('flags', ''))
+    if kind.startswith('type:'):
+        return raw['type'] == kind[5:] and raw['category'] != 'Status'
+    if kind.startswith('category:'):
+        return raw['category'] == kind[9:]
+    if kind.startswith('flag:'):
+        name = kind[5:]
+        if name == 'slicing':
+            return f'{name}: 1' in flags or bool(SLICING_RE.search(mid))
+        return f'{name}: 1' in flags
+    if kind == 'weight':
+        return mid in weight_moves
+    if kind == 'field':
+        return any(key in fields for key in FIELD_KEYS)
+    if kind == 'priority':
+        return int(fields.get('priority', 0) or 0) > 0
+    if kind == 'recoil':
+        return 'recoil' in fields
+    if kind == 'multihit':
+        return 'multihit' in fields
+    if kind == 'protect':
+        return 'stallingMove' in fields
+    if kind == 'spinning':
+        return bool(SPINNING_RE.search(mid))
+    if kind == 'lowbp':
+        return raw['category'] != 'Status' and 0 < (raw['basePower'] or 0) <= 60
+    if kind == 'paralyze':
+        blob = ''.join(str(fields.get(key, '')) for key in ('status', 'secondary', 'secondaries'))
+        return "'par'" in blob
+    raise SystemExit(f'ABILITY_SYNERGY uses an unknown kind: {kind}')
+
+
+def build_learnsets(species, generic, signatures, weight_moves=()):
     """generic: list of (id, entry-dict, raw-move); signatures: {family_page: [ids]}"""
+    weight_moves = set(weight_moves)
     by_type = {}
     for mid, fields, raw in generic:
         by_type.setdefault(raw['type'], []).append((mid, raw))
@@ -687,6 +990,28 @@ def build_learnsets(species, generic, signatures):
         for mid, raw in status_pool[:(10 if bulky else 5)]:
             add(mid, '9M')
 
+        # 6. ability synergy: whatever this Pokemon's own ability rewards
+        for ability in sp['abilities'].values():
+            for kind in ABILITY_SYNERGY.get(toID(ability), []):
+                already = sum(1 for mid, fields, raw in generic
+                              if mid in moves and
+                              synergy_match(kind, mid, fields, raw, weight_moves))
+                if already >= 3:
+                    continue
+                pool = [(mid, fields, raw) for mid, fields, raw in generic
+                        if mid not in moves and
+                        synergy_match(kind, mid, fields, raw, weight_moves)]
+                # Prefer the species' own attacking side, then its own typing,
+                # then a stable name-seeded order so the pick never wobbles.
+                pool.sort(key=lambda x: (
+                    0 if x[2]['category'] == 'Status' or
+                    (x[2]['category'] == 'Physical') == physical else 1,
+                    0 if x[2]['type'] in sp['types'] else 1,
+                    -seeded(sp['name'], 'ability', x[0]), x[0],
+                ))
+                for mid, _fields, _raw in pool[:3 - already]:
+                    add(mid, '9M')
+
         learnsets[toID(sp['name'])] = {'learnset': moves}
     return learnsets
 
@@ -743,7 +1068,7 @@ def main():
         f.write('\n};\n')
 
     # ---- species ---------------------------------------------------------
-    species = build_species(families)
+    species = apply_species_fixups(build_species(families))
     lines = []
     for sp in species:
         lines.append(render_entry(toID(sp['name']), render_species(sp)))
@@ -761,7 +1086,7 @@ def main():
     for sp in species:
         sp['family'] = next(f for f in families if f['page'] == sp['family']['page'])
     signatures = {id(f): [toID(m['name']) for m in f['moves']] for f in families}
-    learnsets = build_learnsets(species, generic, signatures)
+    learnsets = build_learnsets(species, generic, signatures, weight_moves)
     lines = []
     for sid, data in learnsets.items():
         inner = '\n'.join(f'\t\t\t{mid}: {json.dumps(sources)},'.replace('"', "'")

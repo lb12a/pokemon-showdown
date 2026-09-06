@@ -264,6 +264,40 @@ Three pieces, all of which the data check verifies:
 
 The Mega ability must appear on **no** base forme, or the data check will fail.
 
+## Changing a Pokémon the importer got wrong
+
+Do **not** patch `data/mods/fakemon/pokedex.ts` for a design change: the
+learnsets and the tier table are generated from the species data, so a
+hand-patched entry drifts away from them (a re-typed Pokémon keeps the STAB of
+the type it used to have). Put the change in `tools/fakemon/build.py` instead:
+
+* `SPECIES_FIXUPS` — field overrides for an existing Pokémon (typing, stats,
+  abilities, prevo/evos).
+* `EXTRA_FORMES` — `(base name, forme name, changes)`. The forme inherits the
+  base entry and gets its own learnset, tier and asset path.
+* `DOG_LINES` / `DOG_COATS` — the pattern for "one line, several coats that
+  differ by a few stat points"; the first coat is the default forme and a coat
+  is kept through the whole evolution line.
+
+Then `python3 tools/fakemon/build.py && node build && node tools/fakemon/check.js`.
+
+## Making an ability usable
+
+If an ability rewards a *kind* of move rather than raw stats, add it to
+`ABILITY_SYNERGY` in the generator so every Pokémon that has it learns at least
+three moves it can actually use it with:
+
+```python
+    'slowmofly': ['field'],          # sets weather / terrain / rooms / screens
+    'trunklauncher': ['flag:bullet'],
+    'timberfall': ['weight'],
+```
+
+The available kinds are listed above the table (`type:X`, `category:X`,
+`flag:X`, `weight`, `field`, `priority`, `recoil`, `multihit`, `protect`,
+`spinning`, `lowbp`, `paralyze`). An unknown kind stops the build rather than
+silently doing nothing.
+
 ## Adding a field effect
 
 `data/mods/fakemon/conditions.ts`. A field-wide effect is a pseudo-weather:

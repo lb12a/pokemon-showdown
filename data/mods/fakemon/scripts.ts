@@ -116,7 +116,7 @@ function argChanged(before: AnyObject | unknown[] | null, after: unknown) {
 	}
 	const now = argSnapshot(after) as AnyObject;
 	for (const key of new Set([...Object.keys(before), ...Object.keys(now)])) {
-		if ((before as AnyObject)[key] !== now[key]) return true;
+		if (before[key] !== now[key]) return true;
 	}
 	return false;
 }

@@ -306,11 +306,35 @@ export const FormatsData: import('../../../../sim/dex-species').ModdedSpeciesFor
 		tier: 'NFE',
 		doublesTier: 'NFE',
 	},
+	budpupbeagle: {
+		tier: 'NFE',
+		doublesTier: 'NFE',
+	},
+	budpupdalmatian: {
+		tier: 'NFE',
+		doublesTier: 'NFE',
+	},
 	budruff: {
 		tier: 'NFE',
 		doublesTier: 'NFE',
 	},
+	budruffbeagle: {
+		tier: 'NFE',
+		doublesTier: 'NFE',
+	},
+	budruffdalmatian: {
+		tier: 'NFE',
+		doublesTier: 'NFE',
+	},
 	mudruff: {
+		tier: 'OU',
+		doublesTier: 'DOU',
+	},
+	mudruffbeagle: {
+		tier: 'OU',
+		doublesTier: 'DOU',
+	},
+	mudruffdalmatian: {
 		tier: 'OU',
 		doublesTier: 'DOU',
 	},
@@ -346,11 +370,31 @@ export const FormatsData: import('../../../../sim/dex-species').ModdedSpeciesFor
 		tier: 'NFE',
 		doublesTier: 'NFE',
 	},
+	tigitzfae: {
+		tier: 'NFE',
+		doublesTier: 'NFE',
+	},
 	tigraith: {
 		tier: 'NFE',
 		doublesTier: 'NFE',
 	},
+	tigraithcrowned: {
+		tier: 'NFE',
+		doublesTier: 'NFE',
+	},
+	tigraithhypercrowned: {
+		tier: 'NFE',
+		doublesTier: 'NFE',
+	},
 	tigraxe: {
+		tier: 'OU',
+		doublesTier: 'DOU',
+	},
+	tigraxeaxed: {
+		tier: 'OU',
+		doublesTier: 'DOU',
+	},
+	tigraxehyperaxed: {
 		tier: 'OU',
 		doublesTier: 'DOU',
 	},

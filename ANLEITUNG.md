@@ -127,6 +127,34 @@ Attacken, die ausdrücklich einen Verbündeten brauchen (z. B. **Nectar Heal**),
 funktionieren dadurch überhaupt erst — vorher gab es dafür die Fehlermeldung
 `Can't move: … needs a target`.
 
+### Beide Teams selbst bauen
+
+Im Bot-Panel bei **Bot team** die Option *„You pick both teams"* wählen — dann
+erscheint ein zweites Auswahlfeld **„The bot's team"**. Du suchst dir ein
+gespeichertes Team für dich und ein anderes für den Bot aus. Beide werden vom
+Server geprüft; ein illegales Bot-Team wird mit Begründung abgelehnt.
+
+### Level 1 bis 100
+
+Im Teambuilder hat jedes Pokémon jetzt ein Feld **Level**. Von 1 bis 100 frei
+wählbar, und die Werte skalieren wirklich mit: dasselbe Pumpini hat auf Level
+100 252 KP und auf Level 37 nur 99.
+
+### Neue Formen ausprobieren
+
+Im Teambuilder tauchen jetzt auf:
+
+* **Tigitz** (Normal/Kampf) und **Tigitz-Fae** (Normal/Fee) — gleiche Werte,
+  jede Form entwickelt sich in die passende Weiterentwicklung
+* **Tigraith** (Fee/Geist, spezieller Angreifer) und **Tigraxe** (Kampf/Feuer,
+  dieselben Werte mit vertauschter physischer und spezieller Hälfte)
+* **Tigraith-Crowned** (+Sp.Ang, Dritttyp Eis) und **Tigraxe-Axed** (+Ang,
+  Dritttyp Stahl) mit legendären Werten, sowie **Hypercrowned** und
+  **Hyperaxed**, die dieselbe Punktzahl komplett in Initiative und Angriff
+  stecken
+* **Budpup / Budruff / Mudruff** je in **Bobtail** (+Vert), **Beagle** (+Ang)
+  und **Dalmatian** (+Init) — die Fellart bleibt beim Entwickeln erhalten
+
 ### Bot
 
 Im Chat eintippen:
@@ -165,7 +193,7 @@ normal — die Bilder sind noch Platzhalter.
 npx mocha
 ```
 
-Muss `2424 passing` melden, `0 failing`.
+Muss `2434 passing` melden, `0 failing`.
 
 ---
 

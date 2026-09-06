@@ -429,14 +429,14 @@ export const GenericMoves: import('../../../../sim/dex-moves').ModdedMoveDataTab
 		pp: 25,
 		priority: 0,
 		flags: { protect: 1, mirror: 1, sound: 1, bypasssub: 1 },
-		onHit: (target) => {
+		onHit: (target, source) => {
 		let stat: BoostID;
-		for (stat in target.boosts) {
-			if (target.boosts[stat] < 0) target.boosts[stat] = 0;
+		for (stat in source.boosts) {
+			if (source.boosts[stat] < 0) source.boosts[stat] = 0;
 		}
-		target.battle.add('-clearnegativeboost', target);
+		source.battle.add('-clearnegativeboost', source);
 	},
-		target: 'self',
+		target: 'normal',
 		type: "Normal",
 		contestType: "Cool",
 		desc: "Removes one negative stat change from user",
@@ -1593,8 +1593,8 @@ export const GenericMoves: import('../../../../sim/dex-moves').ModdedMoveDataTab
 		pp: 15,
 		priority: 0,
 		flags: { contact: 1, protect: 1, mirror: 1 },
-		volatileStatus: 'fakemonweightless',
-		target: 'self',
+		self: { volatileStatus: 'fakemonweightless' },
+		target: 'normal',
 		type: "Water",
 		contestType: "Cool",
 		desc: "Ignores effects of target's weight-based moves/abilities.",
@@ -2004,7 +2004,7 @@ export const GenericMoves: import('../../../../sim/dex-moves').ModdedMoveDataTab
 		priority: 0,
 		flags: { protect: 1, mirror: 1 },
 		pseudoWeather: 'fakemonempfield',
-		target: 'all',
+		target: 'normal',
 		type: "Electric",
 		contestType: "Cool",
 		desc: "Disables Steel moves & removes Steel-type abilities for 3 turns",
@@ -2084,8 +2084,8 @@ export const GenericMoves: import('../../../../sim/dex-moves').ModdedMoveDataTab
 		pp: 25,
 		priority: 0,
 		flags: { contact: 1, protect: 1, mirror: 1 },
-		volatileStatus: 'fakemonlightningrod',
-		target: 'self',
+		self: { volatileStatus: 'fakemonlightningrod' },
+		target: 'normal',
 		type: "Electric",
 		contestType: "Cool",
 		desc: "Draws all Electric moves next turn, boosting Power to 100 if hit",
@@ -3663,13 +3663,13 @@ export const GenericMoves: import('../../../../sim/dex-moves').ModdedMoveDataTab
 		pp: 15,
 		priority: 0,
 		flags: { contact: 1, protect: 1, mirror: 1 },
-		onHitField: (target, source) => {
+		onHit: (target, source) => {
 		source.battle.field.clearTerrain();
 		for (const id of ['trickroom', 'magicroom', 'wonderroom', 'hauntedroom', 'glitchedroom']) {
 			if (source.battle.field.getPseudoWeather(id)) source.battle.field.removePseudoWeather(id);
 		}
 	},
-		target: 'all',
+		target: 'normal',
 		type: "Ground",
 		contestType: "Cool",
 		desc: "Breaks Terrains and Room effects (Trick Room, etc.).",
@@ -3943,7 +3943,7 @@ export const GenericMoves: import('../../../../sim/dex-moves').ModdedMoveDataTab
 			ally.cureStatus();
 		}
 	},
-		target: 'allyTeam',
+		target: 'normal',
 		type: "Flying",
 		contestType: "Cool",
 		desc: "Cures user's party of sleep condition.",
@@ -4905,8 +4905,8 @@ export const GenericMoves: import('../../../../sim/dex-moves').ModdedMoveDataTab
 		pp: 15,
 		priority: 0,
 		flags: { contact: 1, protect: 1, mirror: 1 },
-		volatileStatus: 'fakemonweightless',
-		target: 'self',
+		self: { volatileStatus: 'fakemonweightless' },
+		target: 'normal',
 		type: "Rock",
 		contestType: "Cool",
 		desc: "Ignores weight modifiers (does neutral damage regardless of weight moves).",
@@ -5973,12 +5973,12 @@ export const GenericMoves: import('../../../../sim/dex-moves').ModdedMoveDataTab
 		pp: 10,
 		priority: 0,
 		flags: { protect: 1, mirror: 1 },
-		onHitField: (target, source) => {
+		onHit: (target, source) => {
 		for (const pokemon of source.battle.getAllActive()) {
 			if (pokemon !== source) pokemon.addVolatile('trapped', source, source.battle.effect as ActiveMove, 'trapper');
 		}
 	},
-		target: 'all',
+		target: 'normal',
 		type: "Dark",
 		contestType: "Cool",
 		desc: "Traps all active Pok\u00e9mon on the field.",
@@ -9800,8 +9800,8 @@ export const GenericMoves: import('../../../../sim/dex-moves').ModdedMoveDataTab
 		pp: 25,
 		priority: 0,
 		flags: { protect: 1, mirror: 1 },
-		sideCondition: 'tailwind',
-		target: 'allySide',
+		self: { sideCondition: 'tailwind' },
+		target: 'normal',
 		type: "Flying",
 		contestType: "Cool",
 		desc: "Team Speed +1",
@@ -11600,12 +11600,12 @@ export const GenericMoves: import('../../../../sim/dex-moves').ModdedMoveDataTab
 		pp: 20,
 		priority: 0,
 		flags: { protect: 1, mirror: 1, snatch: 1 },
-		onHit: (target) => {
+		onHit: (target, source) => {
 		let stat: BoostID;
-		for (stat in target.boosts) {
-			if (target.boosts[stat] < 0) target.boosts[stat] = 0;
+		for (stat in source.boosts) {
+			if (source.boosts[stat] < 0) source.boosts[stat] = 0;
 		}
-		target.battle.add('-clearnegativeboost', target);
+		source.battle.add('-clearnegativeboost', source);
 	},
 		target: 'self',
 		type: "Bug",

@@ -45,10 +45,14 @@
 						<option value="random">Bot builds its own team</option>
 						<option value="mirror">Bot copies your team</option>
 						<option value="swap">Bot uses your team, you get a random one</option>
+						<option value="custom">You pick both teams</option>
 					</select>
 				</label>
 				<label>Your team
 					<select id="bot-team"></select>
+				</label>
+				<label id="bot-own-team-row" hidden>The bot's team
+					<select id="bot-own-team"></select>
 				</label>
 			</div>
 			<button class="primary" id="start-bot">Start battle</button>

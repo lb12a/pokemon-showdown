@@ -224,7 +224,7 @@ const Teams = {
 		return { name: name || 'New team', format: 'singles', sets: [this.blankSet()] };
 	},
 	blankSet() {
-		return { species: '', ability: '', item: '', moves: ['', '', '', ''], spread: 'auto' };
+		return { species: '', ability: '', item: '', moves: ['', '', '', ''], spread: 'auto', level: 100 };
 	},
 	/**
 	 * EV spread and nature. The source files say nothing about EVs, so a set gets
@@ -252,12 +252,16 @@ const Teams = {
 			if (!species) return '';
 			const moves = set.moves.filter(Boolean).map(toID).join(',');
 			const { nature, evs } = this.spreadFor(species, set);
+			const level = clampLevel(set.level);
+			// Showdown flags a level-50 set with a round EV total as a probable
+			// import mistake; one spare EV point is the documented "I meant it".
+			if (level !== 100) evs.hp = Math.min(252, (evs.hp || 0) + 1);
 			const packedEvs = ['hp', 'atk', 'def', 'spa', 'spd', 'spe']
 				.map(stat => evs[stat] || '').join(',');
 			// name|species|item|ability|moves|nature|evs|gender|ivs|shiny|level|happiness
 			return [
 				species.name, '', toID(set.item), toID(set.ability), moves,
-				nature, packedEvs, '', '', '', '', '',
+				nature, packedEvs, '', '', '', level === 100 ? '' : String(level), '',
 			].join('|');
 		}).filter(Boolean).join(']');
 	},
@@ -341,6 +345,9 @@ const UI = {
 			this.renderTeams();
 			this.refreshTeamPickers();
 		};
+		$('#bot-teammode').onchange = () => {
+			$('#bot-own-team-row').hidden = $('#bot-teammode').value !== 'custom';
+		};
 		$('#dex-search').oninput = () => this.renderDex();
 
 		this.renderTeams();
@@ -365,7 +372,7 @@ const UI = {
 
 	// ---------- team pickers ----------
 	refreshTeamPickers() {
-		for (const id of ['#bot-team', '#pvp-team']) {
+		for (const id of ['#bot-team', '#bot-own-team', '#pvp-team']) {
 			const select = $(id);
 			const previous = select.value;
 			select.innerHTML = '';
@@ -404,6 +411,18 @@ const UI = {
 		const name = $('#bot-name').value.trim() || 'Fakemon Bot';
 		const mode = $('#bot-teammode').value;
 		const difficulty = $('#bot-difficulty').value;
+		// "custom" means you built both sides: the bot's team is a packed team,
+		// which is full of commas, so it goes in its own command first.
+		if (mode === 'custom' && !format.startsWith('random')) {
+			const botTeam = this.selectedTeam('#bot-own-team');
+			const problems = Teams.problems(botTeam);
+			if (problems.length) {
+				$('#challenges').innerHTML =
+					`<div class="problem">The bot's team: ${problems.map(escapeHTML).join('<br />')}</div>`;
+				return;
+			}
+			Net.send(`|/fakemonbotteam ${Teams.pack(botTeam)}`);
+		}
 		setTimeout(() => {
 			Net.send(`|/fakemonbot ${format}, ${name}, ${mode}, ${difficulty}`);
 		}, 60);
@@ -528,6 +547,11 @@ const UI = {
 			}));
 			grid.appendChild(this.picker('Item', itemOptions(species), set.item, value => {
 				set.item = value;
+				Teams.save();
+				this.renderTeamEditor();
+			}));
+			grid.appendChild(this.picker('Level', LEVELS, String(clampLevel(set.level)), value => {
+				set.level = clampLevel(value);
 				Teams.save();
 				this.renderTeamEditor();
 			}));
@@ -677,6 +701,14 @@ function speciesOptions() {
 		.sort((a, b) => a[0].localeCompare(b[0]));
 }
 const ITEM_GROUP_ORDER = ['Mega Stone', 'Core', 'Food', 'Consumable', 'Battle gear', 'Permanent gear'];
+
+/** Levels a Pokemon can be sent out at. 100 is the default. */
+const LEVELS = Array.from({ length: 100 }, (_, i) => String(100 - i));
+function clampLevel(value) {
+	const level = Math.round(Number(value));
+	if (!level || isNaN(level)) return 100;
+	return Math.min(100, Math.max(1, level));
+}
 
 /**
  * Move targets the player picks by hand in a double battle. Everything else

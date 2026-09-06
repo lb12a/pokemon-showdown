@@ -621,13 +621,15 @@ def r_clear_boosts(sp, m):
 
 @rule(r'Removes one negative stat change from user|Removes stat drops')
 def r_clear_negative(sp, m):
+    # Written against `source`, not `target`: the text says "from user", and a
+    # damaging move carrying this effect is aimed at a foe.
     sp.set('target', "'self'")
-    sp.set('onHit', "(target) => {\n"
+    sp.set('onHit', "(target, source) => {\n"
                     "\t\tlet stat: BoostID;\n"
-                    "\t\tfor (stat in target.boosts) {\n"
-                    "\t\t\tif (target.boosts[stat] < 0) target.boosts[stat] = 0;\n"
+                    "\t\tfor (stat in source.boosts) {\n"
+                    "\t\t\tif (source.boosts[stat] < 0) source.boosts[stat] = 0;\n"
                     "\t\t}\n"
-                    "\t\ttarget.battle.add('-clearnegativeboost', target);\n"
+                    "\t\tsource.battle.add('-clearnegativeboost', source);\n"
                     "\t}")
 
 

@@ -25,6 +25,14 @@ const FAKEMON_FORMATS: { [key: string]: string } = {
 
 const DIFFICULTIES: BotDifficulty[] = ['easy', 'normal', 'hard'];
 
+/**
+ * Teams a player has built *for the bot*, in packed form. A packed team is full
+ * of commas, so it cannot ride along in `/fakemonbot`'s argument list: the
+ * client sends `/fakemonbotteam` first and the battle command picks it up here.
+ * One entry per player, replaced by the next upload and dropped on logout.
+ */
+const botTeams = new Map<ID, string>();
+
 /** Descriptions live on the raw data entries, not on the runtime classes. */
 function describe(entry: AnyObject | undefined): string {
 	return entry?.shortDesc || entry?.desc || '';
@@ -72,8 +80,8 @@ export const commands: Chat.ChatCommands = {
 		//   swap   - the bot uses YOUR team and you get a random one, which is
 		//            how you play against a team you built for it
 		const teamMode = toID(rawTeamMode) || 'random';
-		if (!['random', 'mirror', 'swap'].includes(teamMode)) {
-			return this.errorReply(`Team mode must be one of: random, mirror, swap.`);
+		if (!['random', 'mirror', 'swap', 'custom'].includes(teamMode)) {
+			return this.errorReply(`Team mode must be one of: random, mirror, swap, custom.`);
 		}
 
 		// A `team: 'random'` format builds both teams itself.
@@ -85,10 +93,26 @@ export const commands: Chat.ChatCommands = {
 			);
 		}
 
+		// "custom": you built both sides, so the bot's team is validated the
+		// same way your own is - it is player input reaching the battle engine.
+		let preparedBotTeam: string | undefined;
+		if (teamMode === 'custom' && !generatesTeams) {
+			preparedBotTeam = botTeams.get(user.id);
+			if (!preparedBotTeam) {
+				return this.errorReply(`Send the bot's team with /fakemonbotteam first.`);
+			}
+			const problems = TeamValidator.get(format.id).validateTeam(Teams.unpack(preparedBotTeam));
+			if (problems) {
+				return this.errorReply(`The bot's team is not legal: ${problems.join(' ')}`);
+			}
+		}
+
 		const playerTeam = generatesTeams ? undefined :
 			(teamMode === 'swap' ? randomFakemonTeam(format) : (ownTeam || undefined));
-		const botTeam = generatesTeams ? undefined :
-			(teamMode === 'random' ? randomFakemonTeam(format) : ownTeam);
+		const botTeam = generatesTeams ? undefined : (
+			teamMode === 'custom' ? preparedBotTeam :
+			teamMode === 'random' ? randomFakemonTeam(format) : ownTeam
+		);
 
 		const battleRoom = Rooms.createBattle({
 			format: format.id,
@@ -103,11 +127,29 @@ export const commands: Chat.ChatCommands = {
 			`Started a ${format.name} battle against ${botName} (${difficulty}, ${teamMode} team).`
 		);
 	},
+	fakemonbotteam(target, room, user) {
+		this.checkChat();
+		const packed = target.trim();
+		if (!packed) {
+			botTeams.delete(user.id);
+			return this.sendReply(`Cleared the team you had prepared for the bot.`);
+		}
+		const team = Teams.unpack(packed);
+		if (!team?.length) return this.errorReply(`That is not a readable packed team.`);
+		botTeams.set(user.id, packed);
+		this.sendReply(`Stored a ${team.length}-Pokemon team for the bot.`);
+	},
+	fakemonbotteamhelp: [
+		`/fakemonbotteam [packed team] - Hand the bot a team you built, for /fakemonbot's "custom" mode.`,
+		`Sending it without a team forgets the stored one. The built-in client does this for you.`,
+	],
+
 	fakemonbothelp: [
 		`/fakemonbot [format], [bot name], [team mode], [difficulty] - Battle a bot.`,
 		`format: singles (default), doubles, random, randomdoubles`,
 		`team mode: random (bot builds its own team, default), mirror (bot copies your team),`,
-		`  swap (the bot uses the team you built and you get a random one)`,
+		`  swap (the bot uses the team you built and you get a random one),`,
+		`  custom (you build both teams - send the bot's with /fakemonbotteam first)`,
 		`difficulty: easy, normal (default), hard`,
 		`Example: /fakemonbot doubles, ShadowMaster, random, hard`,
 	],

@@ -330,6 +330,149 @@ describe('Fakemon: the four item spreadsheets', () => {
 	});
 });
 
+describe('Fakemon: formes and levels', () => {
+	before(() => dex.includeData());
+	beforeEach(() => {
+		battle = null;
+	});
+	afterEach(() => {
+		if (battle) battle.destroy();
+		battle = null;
+	});
+
+	it('should give Tigitz two coats with the same stats', () => {
+		const brawler = dex.species.get('Tigitz');
+		const fae = dex.species.get('Tigitz-Fae');
+		assert(fae.exists, 'Tigitz-Fae should exist');
+		assert.deepEqual(brawler.types, ['Normal', 'Fighting']);
+		assert.deepEqual(fae.types, ['Normal', 'Fairy']);
+		assert.deepEqual(fae.baseStats, brawler.baseStats, 'the two coats share a spread');
+		// Each coat grows into the evolution that matches its typing.
+		assert.deepEqual(brawler.evos, ['Tigraxe']);
+		assert.deepEqual(fae.evos, ['Tigraith']);
+	});
+
+	it('should make Tigraith and Tigraxe mirror images', () => {
+		const raith = dex.species.get('Tigraith');
+		const raxe = dex.species.get('Tigraxe');
+		assert.deepEqual(raith.types, ['Fairy', 'Ghost']);
+		assert.deepEqual(raxe.types, ['Fighting', 'Fire']);
+		assert.equal(raith.baseStats.spa, raxe.baseStats.atk);
+		assert.equal(raith.baseStats.atk, raxe.baseStats.spa);
+		assert.equal(raith.baseStats.spd, raxe.baseStats.def);
+		assert.equal(raith.baseStats.def, raxe.baseStats.spd);
+		assert.equal(raith.baseStats.spe, raxe.baseStats.spe);
+		assert(raith.baseStats.spa > raith.baseStats.atk, 'Tigraith attacks specially');
+		assert(raxe.baseStats.atk > raxe.baseStats.spa, 'Tigraxe attacks physically');
+	});
+
+	it('should give the crowned and axed formes legendary stats and a third type', () => {
+		const cases = [
+			['Tigraith-Crowned', 'Tigraith', 'Ice', 'spa'],
+			['Tigraxe-Axed', 'Tigraxe', 'Steel', 'atk'],
+		];
+		for (const [formeName, baseName, thirdType, stat] of cases) {
+			const forme = dex.species.get(formeName);
+			const base = dex.species.get(baseName);
+			assert(forme.exists, `${formeName} should exist`);
+			assert.equal(forme.types.length, 3, `${formeName} should have three types`);
+			assert.equal(forme.types[2], thirdType);
+			assert(forme.baseStats[stat] > base.baseStats[stat],
+				`${formeName} should out-hit ${baseName}`);
+			assert(forme.bst >= 600, `${formeName} should be legendary-sized (is ${forme.bst})`);
+		}
+	});
+
+	it('should have the hyper formes trade bulk for speed and offence', () => {
+		const pairs = [
+			['Tigraith-Hypercrowned', 'Tigraith-Crowned', 'spa'],
+			['Tigraxe-Hyperaxed', 'Tigraxe-Axed', 'atk'],
+		];
+		for (const [hyper, crowned, stat] of pairs) {
+			const a = dex.species.get(hyper);
+			const b = dex.species.get(crowned);
+			assert.equal(a.bst, b.bst, `${hyper} should cost the same total`);
+			assert(a.baseStats[stat] > b.baseStats[stat], `${hyper} should hit harder`);
+			assert(a.baseStats.spe > b.baseStats.spe, `${hyper} should be faster`);
+			assert(a.baseStats.hp + a.baseStats.def + a.baseStats.spd <
+				b.baseStats.hp + b.baseStats.def + b.baseStats.spd, `${hyper} should be frailer`);
+			assert.deepEqual(a.types, b.types);
+		}
+	});
+
+	it('should give the dog lines three coats that cost the same', () => {
+		for (const line of ['Budpup', 'Budruff', 'Mudruff']) {
+			const bobtail = dex.species.get(line);
+			const beagle = dex.species.get(`${line}-Beagle`);
+			const dalmatian = dex.species.get(`${line}-Dalmatian`);
+			assert(beagle.exists && dalmatian.exists, `${line} should have all three coats`);
+			assert.equal(bobtail.baseForme, 'Bobtail');
+			assert.equal(beagle.bst, bobtail.bst, 'the coats share a total');
+			assert.equal(dalmatian.bst, bobtail.bst);
+			assert(bobtail.baseStats.def > beagle.baseStats.def, 'Bobtail is the sturdy one');
+			assert(beagle.baseStats.atk > bobtail.baseStats.atk, 'Beagle is the strong one');
+			assert(dalmatian.baseStats.spe > bobtail.baseStats.spe, 'Dalmatian is the quick one');
+		}
+	});
+
+	it('should keep the coat when a dog evolves', () => {
+		assert.deepEqual(dex.species.get('Budpup-Beagle').evos, ['Budruff-Beagle']);
+		assert.equal(dex.species.get('Mudruff-Dalmatian').prevo, 'Budruff-Dalmatian');
+	});
+
+	it('should keep Anxious on Cottonip alone', () => {
+		const abilities = name => Object.values(dex.species.get(name).abilities);
+		assert(abilities('Cottonip').includes('Anxious'));
+		for (const name of ['Pompash', 'Pompomble']) {
+			assert.false(abilities(name).includes('Anxious'),
+				`${name} should have grown out of Anxious`);
+		}
+	});
+
+	it('should scale stats with the level', () => {
+		const species = dex.species.get('Pumpini');
+		const move = Object.keys(dex.species.getLearnsetData(species.id).learnset)[0];
+		const set = level => ({
+			species: 'Pumpini', ability: species.abilities[0], moves: [move], level,
+		});
+		battle = fakemon.createBattle([[set(100), set(37), set(1)]], [[
+			{ species: 'Sprank', ability: 'cabinetlock', moves: ['furniturehaunt'] },
+		]]);
+		const [full, mid, low] = battle.p1.pokemon;
+		assert(full.maxhp > mid.maxhp && mid.maxhp > low.maxhp, 'HP should fall with the level');
+		assert(full.storedStats.atk > mid.storedStats.atk, 'Attack should fall with the level');
+		assert(mid.storedStats.spe > low.storedStats.spe, 'Speed should fall with the level');
+	});
+});
+
+describe('Fakemon: every attack can be aimed', () => {
+	before(() => dex.includeData());
+
+	it('should never leave a damaging move with a target it cannot hit', () => {
+		// A rule written for a status move used to set target: 'self' along
+		// with its payload, which made the attack hit nobody.
+		const aimable = ['normal', 'any', 'adjacentFoe', 'adjacentAlly', 'adjacentAllyOrSelf',
+			'allAdjacent', 'allAdjacentFoes', 'randomNormal', 'scripted'];
+		for (const [id, move] of Object.entries(dex.data.Moves)) {
+			if (move.category === 'Status') continue;
+			// Bide is an engine mechanic nothing can select.
+			if (id === 'bide') continue;
+			assert(aimable.includes(move.target), `${id} deals damage but targets ${move.target}`);
+		}
+	});
+
+	it('should let a single-target attack choose the partner', () => {
+		// Every move a player picks a target for must accept an ally slot.
+		const single = ['normal', 'any', 'adjacentAlly', 'adjacentAllyOrSelf'];
+		let checked = 0;
+		for (const move of Object.values(dex.data.Moves)) {
+			if (move.category === 'Status' || !single.includes(move.target)) continue;
+			checked++;
+		}
+		assert(checked > 500, `expected most attacks to be aimable, got ${checked}`);
+	});
+});
+
 describe('Fakemon: ability announcements', () => {
 	beforeEach(() => {
 		battle = null;

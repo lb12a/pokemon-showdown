@@ -21,7 +21,7 @@ Showdown data is not available to players in any way.
 ## 1. What is in the game now
 
 ```
-158 Pokémon  (178 dex entries, including 20 Mega formes)
+169 Pokémon  (189 dex entries, including 20 Mega formes)
 884 moves     (171 of them signature moves from the dex PDF)
 186 abilities (166 normal + 20 Mega abilities)
 240 items     (20 Mega Stones + 20 core items + the four item spreadsheets)
@@ -173,7 +173,68 @@ The team builder groups the item picker by these families (`<optgroup>`), so the
 240-item list stays readable; the grouping comes from the client data bundle,
 which `tools/fakemon/export-client.js` tags per source file.
 
-## 5b. Ability announcements
+## 5b. Design corrections after the import
+
+The importer reads the dex PDF literally. Everything below is a change made
+*after* that import, and all of it lives in `SPECIES_FIXUPS` / `EXTRA_FORMES` /
+`DOG_LINES` in `tools/fakemon/build.py` rather than as a hand-patched species
+table — so the learnsets and the tier table are generated from the corrected
+data instead of drifting away from it. A re-typed Pokémon gets STAB for the
+type it actually has.
+
+**The Tigitz line.** Tigitz comes in two coats with identical stats, and each
+grows into the evolution that matches its typing:
+
+| | typing | BST | note |
+| --- | --- | --- | --- |
+| Tigitz | Normal / Fighting | 320 | default coat, evolves into Tigraxe |
+| Tigitz-Fae | Normal / Fairy | 320 | evolves into Tigraith |
+| Tigraith | Fairy / Ghost | 520 | fast special attacker |
+| Tigraxe | Fighting / Fire | 520 | Tigraith's spread with Atk↔Sp. Atk and Def↔Sp. Def swapped |
+| Tigraith-Crowned | Fairy / Ghost / **Ice** | 600 | 165 Sp. Atk — more than Tigraith reaches |
+| Tigraxe-Axed | Fighting / Fire / **Steel** | 600 | 165 Atk, the mirror of Crowned |
+| Tigraith-Hypercrowned | Fairy / Ghost / Ice | 600 | the same total, all bulk spent on 190 Sp. Atk / 145 Spe |
+| Tigraxe-Hyperaxed | Fighting / Fire / Steel | 600 | 190 Atk / 145 Spe |
+
+The four legendary formes are picked in the team builder, not reached in
+battle: nothing in the sources said how they are earned, so they are ordinary
+selectable formes.
+
+**The Budpup line.** Budpup, Budruff and Mudruff each come in three coats told
+apart by a handful of stat points rather than by typing or ability. Bobtail is
+the *default* forme (so each line has exactly three variants and not a nameless
+fourth), and a coat is kept through the whole evolution line —
+Budpup-Beagle → Budruff-Beagle → Mudruff-Beagle.
+
+| coat | change |
+| --- | --- |
+| Bobtail | +12 Def, −6 Atk, −6 Spe |
+| Beagle | +12 Atk, −6 Def, −6 Spe |
+| Dalmatian | +12 Spe, −6 Atk, −6 Def |
+
+Twelve points in, six out of each of the other two, so every coat keeps the
+total the line already had.
+
+**Cottonip.** Anxious (+3 priority under 25% HP) is a panicking-newborn trait,
+so only the first stage keeps it; Pompash and Pompomble no longer have it.
+
+## 5c. Abilities you can actually use
+
+Roughly a quarter of the abilities only pay off with a particular *kind* of
+move — Slowmofly stretches the field effects its owner sets, Trunk Launcher
+wants a bullet move, Timber Fall wants something weight-based. Generating
+learnsets purely from typing and stats left many of those Pokémon with no way
+to use their own ability.
+
+`ABILITY_SYNERGY` in the generator names what each such ability rewards
+(`type:Electric`, `flag:sound`, `weight`, `field`, `priority`, `recoil`,
+`multihit`, `protect`, `spinning`, `lowbp`, `paralyze`, …) and the learnset
+builder guarantees at least three matching moves, preferring the species' own
+attacking side and its own typing. Chronowl, for instance, now learns three
+field setters for Slowmofly to stretch. Every species with a synergy ability
+has at least one matching move; the count is checked in the test suite.
+
+## 5d. Ability announcements
 
 Showdown only prints an ability when the ability's own code calls `-ability`, so
 most of the 186 custom abilities changed damage, stats, priority or the move
@@ -207,7 +268,7 @@ Two guards keep the log readable:
 
 The client renders the line as *"Concreet's Curing Form took effect!"*.
 
-## 5c. Doubles targeting
+## 5e. Doubles targeting and move targets
 
 A double battle in Showdown lets you aim at **any** adjacent Pokémon, your own
 partner included — the engine has always allowed `move 1 -2`. The built-in
@@ -230,6 +291,21 @@ side is sent as a negative slot, which is what the protocol expects.
 The bot had the same gap — `bestTarget` only ever looked at foes, so an
 ally-targeting move produced an illegal choice. `allyTarget()` handles those
 now, and a move that needs an ally scores zero in a single battle.
+
+A second pass found the other half of the problem: nine *damaging* moves had
+been given a target they cannot hit with — an effect rule written for status
+moves set `target: 'self'` (Clear Voice, Flood Rush, Marble Roll), `'all'`
+(EMP Blast, Fault Breaker, Black Hole), `'allySide'` (Tailwind Strike) or
+`'allyTeam'` (Wind Chime) along with its payload, so the attack itself landed
+on nobody. `resolve_target` now refuses a non-attacking target for any move
+with base power, and the payload moves into `self:` (a volatile or an ally-side
+condition) or from `onHitField` into `onHit`. Every single-target attack in the
+game is therefore `normal`, which is exactly the target the client lets you
+aim at your own partner. True spread moves (`allAdjacentFoes`, `allAdjacent`)
+keep hitting their whole area by design — `allAdjacent` already includes the
+partner.
+
+
 
 ## 6. Bot
 
@@ -359,7 +435,24 @@ What it does:
 Verified in a real browser (Chromium): singles, doubles and player-vs-player all
 play from the first click to a winner with zero JavaScript errors.
 
-## 9a. Known limitations
+## 9a. Picking both teams, and levels
+
+Two additions to the built-in client:
+
+* **You can build the bot's team.** The bot team mode gained a fourth option,
+  *"You pick both teams"*: you choose one saved team for yourself and another
+  for the bot. A packed team is full of commas, so it cannot ride along in
+  `/fakemonbot`'s argument list — the client sends it first with the new
+  `/fakemonbotteam`, which stores it per player until the next upload. The
+  bot's team is player input reaching the battle engine, so it is run through
+  the format's own validator before the battle starts.
+* **Levels 1–100.** Every set in the team builder has a level picker, and the
+  level rides along in the packed team, so a level-37 Pokémon really is weaker.
+  Showdown flags a level-50 set with a round EV total as a probable import
+  mistake; the client adds the one spare EV point that is the documented way of
+  saying "I meant it".
+
+## 9b. Known limitations
 
 * **Sprites are placeholders.** Every Pokemon renders as the placeholder until
   you drop real art into `assets/`. See `assets/README.md`.
@@ -379,7 +472,7 @@ play from the first click to a winner with zero JavaScript errors.
 * **Balance is a first pass.** The data check flags no broken combinations, but
   884 moves have not been playtested against each other.
 
-## 9b. The calculation audit
+## 9c. The calculation audit
 
 After the items went in, everything was checked for effects that *look*
 implemented but never actually run. Two harnesses did the work:
@@ -461,7 +554,7 @@ test/sim/data.js       exempt the fakemon mod from the "no imports" rule,
 ```bash
 node build                       # compile
 node tools/fakemon/check.js      # data + balance report (0 errors)
-npx mocha                        # the suite (runs everything: 2424 tests)
+npx mocha                        # the suite (runs everything: 2434 tests)
 python3 tools/fakemon/build.py   # regenerate + report uncompiled effect text
 npx eslint                       # clean
 npx tsc --noEmit                 # clean
