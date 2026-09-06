@@ -2444,7 +2444,7 @@ export const Pokedex: import('../../../../sim/dex-species').ModdedSpeciesDataTab
 		name: "Violethra",
 		types: ["Poison", "Ghost"],
 		baseStats: { hp: 78, atk: 171, def: 110, spa: 60, spd: 68, spe: 33 },
-		abilities: { 0: 0: "Blind Needle", H: "Inverted Growth" },
+		abilities: { 0: "Blind Needle", H: "Inverted Growth" },
 		heightm: 1.9,
 		weightkg: 126.7,
 		color: "Green",
