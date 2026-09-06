@@ -639,9 +639,19 @@ data counts and the effect setters. And the client's own files are served with
 `cacheTime: 0`, because an hour-old `index.html` or `fakemon-data.js` makes a
 fresh pull look like nothing changed at all.
 
-This matters because **every commit of this project lives on the branch
-`claude/pokemon-showdown-custom-system-eszso4`**. `master` is untouched
-upstream Showdown, so a `git pull` there brings back nothing.
+Two things made a stale build possible in the first place, both fixed:
+
+* **`node build` used to rewrite `assets/manifest.json`**, a tracked file. With
+  `* text=auto` in `.gitattributes` a Windows checkout has CRLF while the
+  generator writes LF, so *every* build dirtied the working tree and the next
+  `git pull` aborted with "Your local changes to the following files would be
+  overwritten by merge" — leaving the checkout behind while `node build`
+  cheerfully rebuilt the old code. The manifest is now written only by
+  `node tools/fakemon/export-client.js`, and only when it actually changed;
+  `.gitattributes` also pins the generated files to LF.
+* **Every commit of this project lives on the branch
+  `claude/pokemon-showdown-custom-system-eszso4`.** `master` is untouched
+  upstream Showdown, so a `git pull` there brings back nothing.
 
 ## 11. Verifying it
 

@@ -452,6 +452,20 @@ nothing. `resolve_target()` handles the structural cases (`forceSwitch` must
 target a foe, `onHitField` must be field-wide, a pure weather/terrain/Room move
 is `'all'`); for anything else, add the move to `TARGET_FIXUPS`.
 
+## Regenerating the asset manifest
+
+`assets/manifest.json` lists the expected path of every image in the game. It is
+**not** rewritten by `node build` — it is a tracked file, and rewriting it on
+every build dirtied the working tree and made the next `git pull` abort. Update
+it explicitly when the dex changed:
+
+```bash
+node tools/fakemon/export-client.js
+```
+
+It says either `Updated assets/manifest.json` or `assets/manifest.json was
+already current`.
+
 ## Replacing the placeholder images
 
 See `assets/README.md`. Short version: drop a PNG named after the entry's ID

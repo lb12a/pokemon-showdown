@@ -63,56 +63,75 @@ und dort ist von diesem Projekt nichts drin.
 
 ## 0b. Bist du überhaupt auf dem richtigen Stand?
 
-**Das ist mit Abstand die häufigste Ursache dafür, dass „nichts neu aussieht".**
-Die ganze Arbeit liegt auf dem Branch
-`claude/pokemon-showdown-custom-system-eszso4`, **nicht** auf `master`.
-Auf `master` liegt das unveränderte, ganz normale Pokémon Showdown.
+**Der schnellste Test:** oben rechts im Client steht seit Neuestem eine kleine
+Zeile wie
 
-Prüfen, auf welchem Branch du bist:
+```
+claude/pokemon-showdown-custom-system-eszso4 @ 3943f274 · built 2026-09-06 19:09
+```
+
+Steht dort *gar nichts*, läuft ein alter Stand. Im Chat geht es auch mit
+`/fakemonversion` — antwortet das mit „none - this is an old build", ist es ein
+alter Stand.
+
+Die drei Ursachen, in der Reihenfolge, in der sie wirklich vorkommen:
+
+### 1. Der Browser zeigt noch die alte Seite
+
+Mit Abstand am häufigsten. Nach jedem `node build` die Seite mit **Strg+F5**
+neu laden — normales F5 reicht nicht immer. (Der Server schickt seine
+Client-Dateien inzwischen mit `Cache-Control: max-age=0`, aber eine Seite, die
+noch aus der alten Sitzung offen ist, muss trotzdem einmal hart neu geladen
+werden.)
+
+### 2. `git pull` ist abgebrochen und du hast es nicht gesehen
+
+Sieht so aus:
+
+```
+error: Your local changes to the following files would be overwritten by merge:
+        assets/manifest.json
+Please commit your changes or stash them before you merge.
+Aborting
+```
+
+`git pull` bricht dann **ohne** irgendetwas zu holen ab — und `node build`
+danach baut fröhlich den alten Stand. Lösung:
+
+```powershell
+git stash
+git pull
+node build
+```
+
+(Das passierte, weil `node build` früher `assets/manifest.json` neu geschrieben
+hat, eine versionierte Datei. Das tut es nicht mehr; die Datei pflegt jetzt nur
+noch `node tools/fakemon/export-client.js`. Der Fehler kann also nicht mehr
+auftreten — aber wenn er bei dir noch offen ist, ist der `git stash` oben die
+Lösung.)
+
+Danach kontrollieren, dass der Pull wirklich durchlief:
+
+```powershell
+git log --oneline -1
+```
+
+### 3. Du bist auf dem falschen Branch
+
+Die ganze Arbeit liegt auf `claude/pokemon-showdown-custom-system-eszso4`; auf
+`master` liegt unverändertes Pokémon Showdown.
 
 ```powershell
 git branch --show-current
 ```
 
-Kommt da `master` (oder gar nichts), dann hol dir den richtigen Branch:
+Kommt da `master`, dann:
 
 ```powershell
 git fetch origin
 git checkout claude/pokemon-showdown-custom-system-eszso4
 git pull
 node build
-```
-
-**Der schnellste Test, ob wirklich der neue Stand läuft:** oben rechts im
-Client steht jetzt eine kleine Zeile wie
-
-```
-claude/pokemon-showdown-custom-system-eszso4 @ 8524a9b3 · built 2026-09-06 19:09
-```
-
-Steht dort etwas anderes — oder gar nichts —, läuft ein alter Stand. Im Chat
-geht es auch:
-
-```
-/fakemonversion
-```
-
-Das antwortet mit der Anzahl Pokémon, Attacken, Items und Fähigkeiten und mit
-der Liste der Effekt-Attacken. Steht dort „none - this is an old build", ist es
-ein alter Stand.
-
-**Zweithäufigste Ursache: der Browser-Cache.** Nach jedem `node build` die
-Seite mit **Strg+F5** neu laden. (Der Server schickt seine Client-Dateien
-inzwischen mit `Cache-Control: max-age=0`, damit genau das nicht mehr passiert
-— aber eine Seite, die noch aus der alten Sitzung offen ist, muss trotzdem
-einmal hart neu geladen werden.)
-
-**Wenn `git pull` meckert**, weil du lokal etwas geändert hast:
-
-```powershell
-git stash
-git pull
-git stash pop
 ```
 
 ## 1. Holen und starten
