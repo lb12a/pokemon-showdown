@@ -678,6 +678,31 @@ function speciesOptions() {
 }
 const ITEM_GROUP_ORDER = ['Mega Stone', 'Core', 'Food', 'Consumable', 'Battle gear', 'Permanent gear'];
 
+/**
+ * Move targets the player picks by hand in a double battle. Everything else
+ * (spread moves, the whole field, the user itself, a side) resolves on its own
+ * and must NOT be sent with a target - the server rejects that as an error.
+ */
+const CHOOSABLE_TARGETS = ['normal', 'any', 'adjacentFoe', 'adjacentAlly', 'adjacentAllyOrSelf'];
+
+/**
+ * Is the Pokemon in `slot` on `side` a legal target for the pending move?
+ * `pending.slot` is the index of the Pokemon that is choosing.
+ *
+ * `normal` and `any` reach the ally as well as the foes, which is how a double
+ * battle lets you hit your own partner on purpose.
+ */
+function isLegalTarget(pending, isFoe, slot) {
+	const isSelf = !isFoe && slot === pending.slot;
+	switch (pending.target) {
+	case 'adjacentFoe': return isFoe;
+	case 'adjacentAlly': return !isFoe && !isSelf;
+	case 'adjacentAllyOrSelf': return !isFoe;
+	case 'normal': case 'any': return isFoe || !isSelf;
+	default: return false;
+	}
+}
+
 function itemOptions(species) {
 	return Object.values(D.items)
 		// A Mega Stone is only offered to the Pokemon it belongs to.
@@ -814,9 +839,15 @@ const Battle = {
 		case '-weather':
 			if (p[1] !== 'none') this.log(roomid, `Weather: ${p[1]}`, 'sys');
 			break;
-		case '-fieldstart': case '-fieldend': case '-sidestart': case '-sideend':
-			this.log(roomid, line.slice(1).replace(/\|/g, ' '), 'sys');
+		case '-fieldstart': case '-fieldend': case '-sidestart': case '-sideend': {
+			// `|-sidestart|p1: Name|move: Spikes` -> "Spikes started on your side."
+			const name = (p[p.length - 1] || '').replace(/^(move|ability|item):\s*/, '');
+			const gone = p[0].endsWith('end');
+			const where = p[0].includes('side') ?
+				` on ${(p[1] || '').startsWith(room.mySide) ? 'your' : 'the opposing'} side` : '';
+			this.log(roomid, `${name}${where} ${gone ? 'wore off' : 'started'}.`, 'sys');
 			break;
+		}
 		case '-boost': case '-unboost': {
 			const mon = this.mon(room, p[1].split(':')[0]);
 			this.log(roomid, `${mon.species}'s ${p[2].toUpperCase()} ` +
@@ -824,7 +855,7 @@ const Battle = {
 			break;
 		}
 		case '-ability':
-			this.log(roomid, `${p[1].split(': ')[1] || p[1]}: ${p[2]}`, 'sys');
+			this.log(roomid, `${p[1].split(': ')[1] || p[1]}'s ${p[2]} took effect!`, 'sys');
 			break;
 		case '-item': case '-enditem':
 			this.log(roomid, `${p[1].split(': ')[1] || p[1]}: ${p[2]}`, 'sys');
@@ -923,10 +954,12 @@ const Battle = {
 			card.append(bar, el('div', 'statline',
 				mon.maxhp === 100 ? `${pct}%` : `${mon.hp}/${mon.maxhp}`));
 
-			// Doubles targeting: click an opposing Pokemon to aim at it.
-			if (isFoe && room.pendingMove) {
+			// Doubles targeting: click the Pokemon to aim at - a foe, or your own
+			// partner. Showdown numbers your own side with negative slots.
+			if (room.pendingMove && !mon.fainted &&
+				isLegalTarget(room.pendingMove, isFoe, slot)) {
 				card.classList.add('targetable');
-				card.onclick = () => this.chooseTarget(room, slot + 1);
+				card.onclick = () => this.chooseTarget(room, isFoe ? slot + 1 : -(slot + 1));
 			}
 			container.appendChild(card);
 		});
@@ -992,7 +1025,12 @@ const Battle = {
 		}
 
 		if (room.pendingMove) {
-			box.appendChild(el('div', 'prompt', 'Click an opposing Pokémon to target'));
+			const allyOnly = ['adjacentAlly', 'adjacentAllyOrSelf'].includes(room.pendingMove.target);
+			const foeOnly = room.pendingMove.target === 'adjacentFoe';
+			box.appendChild(el('div', 'prompt',
+				allyOnly ? 'Click one of your own Pokémon to target' :
+				foeOnly ? 'Click an opposing Pokémon to target' :
+				'Click a Pokémon to target — your own partner counts'));
 			const cancel = el('button', null, 'Cancel');
 			cancel.onclick = () => {
 				room.pendingMove = null;
@@ -1017,10 +1055,9 @@ const Battle = {
 			btn.title = data.desc || '';
 			btn.onclick = () => {
 				// The request's own target type decides whether a target is legal.
-				const needsTarget = isDoubles &&
-					['normal', 'any', 'adjacentFoe'].includes(move.target);
+				const needsTarget = isDoubles && CHOOSABLE_TARGETS.includes(move.target);
 				if (needsTarget) {
-					room.pendingMove = i + 1;
+					room.pendingMove = { index: i + 1, target: move.target, slot: index };
 					this.renderControls(roomid);
 					this.render(roomid);
 				} else {
@@ -1080,10 +1117,10 @@ const Battle = {
 		return grid;
 	},
 	chooseTarget(room, slot) {
-		const index = room.pendingMove;
+		const pending = room.pendingMove;
 		room.pendingMove = null;
 		const roomid = Object.keys(this.rooms).find(id => this.rooms[id] === room);
-		this.choose(roomid, `move ${index} ${slot}${room.mega ? ' mega' : ''}`);
+		this.choose(roomid, `move ${pending.index} ${slot}${room.mega ? ' mega' : ''}`);
 	},
 	choose(roomid, choice) {
 		const room = this.rooms[roomid];

@@ -61,6 +61,99 @@ export const STONELESS_MEGA = '@@FAKEMON_STONELESS_MEGA';
 /** Every base stat gains this much when Mega Evolving without a Mega Stone. */
 export const STONELESS_MEGA_BOOST = 20;
 
+/**
+ * Ability announcements
+ * ---------------------
+ * Showdown only prints an ability when the ability itself calls `-ability`, so
+ * most of the custom abilities changed damage, stats, priority or the move
+ * itself completely silently - the player saw a number they could not explain.
+ *
+ * `announceAbility` wraps every ability handler in the mod so that whenever a
+ * handler actually *does* something, a line naming the Pokemon and its ability
+ * is written to the battle log first. "Actually does something" means: it
+ * returned a value, it logged something itself, it applied a `chainModify`, or
+ * it mutated the object it was handed (the move for `onModifyMove`, the boost
+ * table for `onTryBoost`, ...). A handler that runs and finds its condition
+ * false stays silent.
+ *
+ * It announces at most once per turn per Pokemon per ability, so a modifier
+ * that fires on every damage roll does not flood the log.
+ */
+
+/**
+ * Bookkeeping events. They run every turn to keep the engine's idea of what is
+ * legal up to date, and announcing them would print a line every upkeep for
+ * something the player already sees in the UI (a greyed-out switch or move).
+ */
+const SILENT_ABILITY_EVENTS = new Set([
+	'onTrapPokemon', 'onMaybeTrapPokemon', 'onFoeTrapPokemon', 'onFoeMaybeTrapPokemon',
+	'onAllyTrapPokemon', 'onAnyTrapPokemon', 'onAnyMaybeTrapPokemon',
+	'onDisableMove', 'onFoeDisableMove', 'onAllyDisableMove', 'onAnyDisableMove',
+	'onUpdate', 'onAnyUpdate',
+]);
+
+/** Shallow copy used to spot a handler mutating the object it was given. */
+function argSnapshot(value: unknown): AnyObject | unknown[] | null {
+	if (!value || typeof value !== 'object') return null;
+	if (Array.isArray(value)) return value.slice();
+	// Pokemon, Side, Field and Battle are big and are not what a handler is
+	// "changing" in the sense this is looking for.
+	const obj = value as AnyObject;
+	if (obj.getSlot || obj.sideConditions || obj.pseudoWeather || obj.sides) return null;
+	const copy: AnyObject = { ...obj };
+	// `secondaries` is mutated in place by several abilities, and a shallow copy
+	// keeps the same array, so its length is recorded separately.
+	const secondaries = (value as AnyObject).secondaries;
+	if (Array.isArray(secondaries)) copy['@@secondaries'] = secondaries.length;
+	return copy;
+}
+
+function argChanged(before: AnyObject | unknown[] | null, after: unknown) {
+	if (!before || !after || typeof after !== 'object') return false;
+	if (Array.isArray(before)) {
+		if (!Array.isArray(after) || before.length !== after.length) return true;
+		return before.some((value, i) => value !== (after as unknown[])[i]);
+	}
+	const now = argSnapshot(after) as AnyObject;
+	for (const key of new Set([...Object.keys(before), ...Object.keys(now)])) {
+		if ((before as AnyObject)[key] !== now[key]) return true;
+	}
+	return false;
+}
+
+function announceAbility(name: string, event: string, handler: (this: Battle, ...args: any[]) => any) {
+	if ((handler as AnyObject).fakemonAnnounces || SILENT_ABILITY_EVENTS.has(event)) return handler;
+	const wrapped = function (this: Battle, ...args: any[]) {
+		const state = this.effectState;
+		const holder = state?.target as Pokemon | undefined;
+		const before = argSnapshot(args[0]);
+		const logLength = this.log.length;
+		const modifier = this.event?.modifier;
+
+		const result = handler.apply(this, args);
+
+		if (!holder?.isActive || state.fakemonShownTurn === this.turn) return result;
+		const logged = this.log.length > logLength;
+		const didSomething = result !== undefined || logged ||
+			(modifier !== undefined && this.event?.modifier !== modifier) ||
+			argChanged(before, args[0]);
+		if (!didSomething) return result;
+		// A handler that already named the ability does not need a second line.
+		const own = this.log.slice(logLength).join('|');
+		if (own.includes(`ability: ${name}`) || own.includes(`|-ability|`)) {
+			state.fakemonShownTurn = this.turn;
+			return result;
+		}
+		state.fakemonShownTurn = this.turn;
+		// Inserted where the handler started, so it reads as the cause of what
+		// the handler then logged.
+		this.log.splice(logLength, 0, `|-ability|${holder.getSlot()}: ${holder.name}|${name}`);
+		return result;
+	};
+	(wrapped as AnyObject).fakemonAnnounces = true;
+	return wrapped;
+}
+
 export const Scripts: ModdedBattleScriptsData = {
 	gen: 9,
 	inherit: 'gen9',
@@ -107,6 +200,15 @@ export const Scripts: ModdedBattleScriptsData = {
 		for (const id in this.data.Abilities) {
 			if (id === 'noability') continue;
 			if (!keepAbilities.has(id)) delete this.data.Abilities[id];
+		}
+		// Every remaining ability announces itself when it takes effect.
+		for (const id in this.data.Abilities) {
+			if (id === 'noability') continue;
+			const ability = this.data.Abilities[id] as AnyObject;
+			for (const key of Object.keys(ability)) {
+				if (!key.startsWith('on') || typeof ability[key] !== 'function') continue;
+				ability[key] = announceAbility(ability.name, key, ability[key]);
+			}
 		}
 
 		// --- items: custom only ----------------------------------------------

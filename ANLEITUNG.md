@@ -104,6 +104,29 @@ Gut sichtbar sind:
 * **Granite Anchor** — kann nicht aus dem Kampf gezwungen werden
 * **Splinter-Bark Husk** — Angreifer bekommt 1/10 des Schadens zurück
 
+### Fähigkeiten im Kampflog
+
+Sobald eine Fähigkeit tatsächlich etwas bewirkt — Schaden verändert, Werte
+verschiebt, eine Attacke umbaut —, steht das jetzt im Log:
+
+```
+Pumpini's Grass-Starter took effect!
+```
+
+Die Zeile kommt **vor** der Wirkung, damit man sieht, wovon die Zahl kommt.
+Eine Fähigkeit, deren Bedingung gerade nicht zutrifft, bleibt still, und pro
+Zug wird jede Fähigkeit höchstens einmal gemeldet.
+
+### Doppelkämpfe: eigenes Teammitglied angreifen
+
+Im Doppelkampf eine Attacke anklicken — jetzt leuchten **beide** Seiten als
+Ziel auf, also auch dein eigenes zweites Pokémon. Anklicken und es wird
+angegriffen (oder geheilt, je nach Attacke).
+
+Attacken, die ausdrücklich einen Verbündeten brauchen (z. B. **Nectar Heal**),
+funktionieren dadurch überhaupt erst — vorher gab es dafür die Fehlermeldung
+`Can't move: … needs a target`.
+
 ### Bot
 
 Im Chat eintippen:
@@ -142,7 +165,7 @@ normal — die Bilder sind noch Platzhalter.
 npx mocha
 ```
 
-Muss `2417 passing` melden, `0 failing`.
+Muss `2424 passing` melden, `0 failing`.
 
 ---
 

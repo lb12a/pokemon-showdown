@@ -1707,11 +1707,14 @@ export const GenericMoves: import('../../../../sim/dex-moves').ModdedMoveDataTab
 		basePower: 0,
 		category: "Status",
 		name: "Nectar Heal",
-		pp: 10,
+		pp: 20,
 		priority: 0,
 		flags: { protect: 1, mirror: 1, heal: 1 },
-		sideCondition: 'fakemonrelayheal',
 		selfSwitch: true,
+		onHit: (target, source) => {
+		source.battle.heal(target.baseMaxhp * 50 / 100, target, source);
+		target.cureStatus();
+	},
 		target: 'adjacentAllyOrSelf',
 		type: "Grass",
 		contestType: "Cool",

@@ -173,6 +173,64 @@ The team builder groups the item picker by these families (`<optgroup>`), so the
 240-item list stays readable; the grouping comes from the client data bundle,
 which `tools/fakemon/export-client.js` tags per source file.
 
+## 5b. Ability announcements
+
+Showdown only prints an ability when the ability's own code calls `-ability`, so
+most of the 186 custom abilities changed damage, stats, priority or the move
+itself in complete silence — the player saw a number with no explanation.
+
+`scripts.ts` now wraps every ability handler in the mod (`announceAbility`).
+When a handler *actually does something*, a line naming the Pokémon and its
+ability is written into the log first, so it reads as the cause of whatever the
+handler then did:
+
+```
+|move|p1a: Pumpini|Sugarcrush|p2a: Sprank
+|-ability|p1a: Pumpini|Grass-Starter
+|-damage|p2a: Sprank|218/278
+```
+
+"Actually does something" is decided from four signals: the handler returned a
+value, it logged something itself, it applied a `chainModify`, or it mutated the
+object it was handed (the move for `onModifyMove`, the boost table for
+`onTryBoost`). A handler that runs and finds its condition false stays silent,
+and an ability that already announced itself is not announced twice.
+
+Two guards keep the log readable:
+
+* **once per turn per Pokémon** — a modifier that fires on every damage roll
+  prints one line, not six;
+* **bookkeeping events are skipped** (`SILENT_ABILITY_EVENTS`: trapping,
+  disabling, `onUpdate`). They run every turn to keep the engine's idea of what
+  is legal current, and the player already sees the result as a greyed-out
+  switch or move button.
+
+The client renders the line as *"Concreet's Curing Form took effect!"*.
+
+## 5c. Doubles targeting
+
+A double battle in Showdown lets you aim at **any** adjacent Pokémon, your own
+partner included — the engine has always allowed `move 1 -2`. The built-in
+client did not: it only made the opposing Pokémon clickable, and it only asked
+for a target at all for `normal`, `any` and `adjacentFoe`.
+
+That had two consequences, both fixed:
+
+* you could not attack your own partner on purpose;
+* a move with an ally target (`adjacentAlly`, `adjacentAllyOrSelf`) was sent
+  without a target, and the server answered
+  `Can't move: <Move> needs a target` — `Side#chooseMove` rejects a missing
+  target for every type in the engine's own `CHOOSABLE_TARGETS`.
+
+`CHOOSABLE_TARGETS` in `server/static/fakemon.js` now mirrors the engine's list
+exactly, and `isLegalTarget()` mirrors `Battle#validTargetLoc`: both foes and
+the partner light up, the user itself only for `adjacentAllyOrSelf`. Your own
+side is sent as a negative slot, which is what the protocol expects.
+
+The bot had the same gap — `bestTarget` only ever looked at foes, so an
+ally-targeting move produced an illegal choice. `allyTarget()` handles those
+now, and a move that needs an ally scores zero in a single battle.
+
 ## 6. Bot
 
 `data/mods/fakemon/bot.ts` is a heuristic AI that sees exactly what a player
@@ -314,6 +372,10 @@ play from the first click to a winner with zero JavaScript errors.
 * **Three types.** Thirteen Pokemon have three types, exactly as the PDF
   specifies. The engine handles it; the client shows all three.
 * **Team preview** picks the default order; there is no drag-to-reorder yet.
+* **Ability announcements are heuristic.** A handler that mutates something
+  nested (pushing onto an array it was given, rather than replacing it) can slip
+  past the "did it do anything" check and stay silent. Nothing is announced
+  falsely; a rare effect can go unannounced.
 * **Balance is a first pass.** The data check flags no broken combinations, but
   884 moves have not been playtested against each other.
 
@@ -399,7 +461,7 @@ test/sim/data.js       exempt the fakemon mod from the "no imports" rule,
 ```bash
 node build                       # compile
 node tools/fakemon/check.js      # data + balance report (0 errors)
-npx mocha                        # the suite (runs everything: 2417 tests)
+npx mocha                        # the suite (runs everything: 2424 tests)
 python3 tools/fakemon/build.py   # regenerate + report uncompiled effect text
 npx eslint                       # clean
 npx tsc --noEmit                 # clean

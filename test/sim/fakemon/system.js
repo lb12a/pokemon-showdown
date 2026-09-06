@@ -330,6 +330,117 @@ describe('Fakemon: the four item spreadsheets', () => {
 	});
 });
 
+describe('Fakemon: ability announcements', () => {
+	beforeEach(() => {
+		battle = null;
+	});
+	afterEach(() => {
+		if (battle) battle.destroy();
+		battle = null;
+	});
+
+	it('should name the ability whenever it takes effect', () => {
+		// Grass-Starter boosts Grass moves, which is otherwise invisible: the
+		// player only sees a damage number they cannot explain.
+		battle = fakemon.createBattle([[
+			{ species: 'Pumpini', ability: 'grassstarter', moves: ['sugarcrush'] },
+		], [
+			{ species: 'Sprank', ability: 'cabinetlock', moves: ['furniturehaunt'] },
+		]]);
+		battle.makeChoices('move 1', 'move 1');
+		const lines = battle.log.filter(line => line.startsWith('|-ability|'));
+		assert(lines.some(line => line.includes('Pumpini') && line.includes('Grass-Starter')),
+			`expected a Grass-Starter line, got ${JSON.stringify(lines)}`);
+	});
+
+	it('should announce the ability before what the ability did', () => {
+		battle = fakemon.createBattle([[
+			{ species: 'Pumpini', ability: 'grassstarter', moves: ['sugarcrush'] },
+		], [
+			{ species: 'Sprank', ability: 'cabinetlock', moves: ['furniturehaunt'] },
+		]]);
+		battle.makeChoices('move 1', 'move 1');
+		const ability = battle.log.findIndex(line => line.includes('|Grass-Starter'));
+		const damage = battle.log.findIndex(line => line.startsWith('|-damage|p2a'));
+		assert(ability >= 0 && damage >= 0 && ability < damage,
+			'the ability line should come before the damage it caused');
+	});
+
+	it('should stay quiet when the ability does not apply', () => {
+		// Grass-Starter only touches Grass moves; a Ghost move must not trigger it.
+		battle = fakemon.createBattle([[
+			{ species: 'Sprank', ability: 'grassstarter', moves: ['furniturehaunt'] },
+		], [
+			{ species: 'Spukasten', ability: 'cabinetlock', moves: ['furniturehaunt'] },
+		]]);
+		battle.makeChoices('move 1', 'move 1');
+		assert.false(battle.log.some(line => line.includes('|Grass-Starter')),
+			'an ability that did nothing must not be announced');
+	});
+
+	it('should announce an ability at most once per turn', () => {
+		battle = fakemon.createBattle([[
+			{ species: 'Pumpini', ability: 'grassstarter', moves: ['sugarcrush'] },
+		], [
+			{ species: 'Sprank', ability: 'cabinetlock', moves: ['furniturehaunt'] },
+		]]);
+		battle.makeChoices('move 1', 'move 1');
+		const perTurn = battle.log.filter(line => line.includes('|Grass-Starter')).length;
+		assert.equal(perTurn, 1, 'a modifier that fires on every hit must not flood the log');
+	});
+});
+
+describe('Fakemon: doubles targeting', () => {
+	beforeEach(() => {
+		battle = null;
+	});
+	afterEach(() => {
+		if (battle) battle.destroy();
+		battle = null;
+	});
+
+	const doublesTeams = () => [[
+		{ species: 'Pumpini', ability: 'grassstarter', moves: ['sugarcrush', 'nectarheal'] },
+		{ species: 'Candigrim', ability: 'grassstarter', moves: ['sugarcrush'] },
+		{ species: 'Hallowisp', ability: 'grassstarter', moves: ['sugarcrush'] },
+	], [
+		{ species: 'Sprank', ability: 'cabinetlock', moves: ['furniturehaunt'] },
+		{ species: 'Spukasten', ability: 'cabinetlock', moves: ['furniturehaunt'] },
+		{ species: 'Bytebug', ability: 'quickcharge', moves: ['furniturehaunt'] },
+	]];
+
+	it('should let a Pokemon attack its own partner', () => {
+		battle = fakemon.createBattle({ gameType: 'doubles' }, doublesTeams());
+		const partner = battle.p1.active[1];
+		const before = partner.hp;
+		battle.makeChoices('move 1 -2, move 1 1', 'move 1, move 1');
+		assert(partner.hp < before, 'the partner should have taken the hit');
+	});
+
+	it('should let an ally-targeting move pick the partner', () => {
+		battle = fakemon.createBattle({ gameType: 'doubles' }, doublesTeams());
+		const partner = battle.p1.active[1];
+		partner.hp = Math.floor(partner.maxhp / 4);
+		const before = partner.hp;
+		battle.makeChoices('move 2 -2, move 1 1', 'move 1, move 1');
+		assert(partner.hp > before, 'Nectar Heal should have healed the partner');
+	});
+
+	it('should offer a choosable target for every move that needs one', () => {
+		// These are exactly the targets the server demands a target for; the
+		// client must offer all of them or the choice is rejected with
+		// "Can't move: X needs a target".
+		const needTarget = ['normal', 'any', 'adjacentAlly', 'adjacentAllyOrSelf', 'adjacentFoe'];
+		const client = require('fs')
+			.readFileSync('./server/static/fakemon.js', 'utf8');
+		const listed = client.match(/const CHOOSABLE_TARGETS = \[([^\]]*)\]/);
+		assert(listed, 'the client should declare which targets it asks for');
+		for (const target of needTarget) {
+			assert(listed[1].includes(`'${target}'`), `the client must handle ${target}`);
+		}
+	});
+});
+
 describe('Fakemon: move wiring', () => {
 	before(() => dex.includeData());
 	beforeEach(() => {

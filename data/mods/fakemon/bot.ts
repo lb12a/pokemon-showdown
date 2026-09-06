@@ -20,6 +20,9 @@ export type BotDifficulty = 'easy' | 'normal' | 'hard';
 /** Targets a player may pick explicitly; mirrors `CHOOSABLE_TARGETS` in the sim. */
 const CHOOSABLE_TARGETS = new Set(['normal', 'any', 'adjacentAlly', 'adjacentAllyOrSelf', 'adjacentFoe']);
 
+/** Targets that point at the bot's own side, which uses negative slot numbers. */
+const ALLY_TARGETS = new Set(['adjacentAlly', 'adjacentAllyOrSelf']);
+
 /** How much noise is added to every score, and how often the bot plans ahead. */
 const DIFFICULTY: { [d in BotDifficulty]: { noise: number, switching: boolean, mega: boolean } } = {
 	easy: { noise: 0.6, switching: false, mega: false },
@@ -241,7 +244,9 @@ export class FakemonBot {
 			// into a move gets `scripted`, and passing a target then is illegal.
 			const requestTarget = (active.moves as AnyObject[])[best.index - 1]?.target;
 			if (isDoubles && CHOOSABLE_TARGETS.has(requestTarget)) {
-				const target = this.bestTarget(this.dex.moves.get(best.id), self, foePositions);
+				const target = ALLY_TARGETS.has(requestTarget) ?
+					this.allyTarget(requestTarget, pokemon, actives.length, i) :
+					this.bestTarget(this.dex.moves.get(best.id), self, foePositions);
 				if (target) return `move ${best.index} ${target}${suffix}`;
 			}
 			return `move ${best.index}${suffix}`;
@@ -269,6 +274,8 @@ export class FakemonBot {
 	private moveScore(move: AnyObject, self: AnyObject, foes: [string, FoeInfo][], isDoubles: boolean): number {
 		const data = this.dex.moves.get(move.id);
 		if (!data.exists) return 0;
+		// A move that has to hit an ally simply fails when there is none.
+		if (move.target === 'adjacentAlly' && !isDoubles) return 0;
 		const species = this.dex.species.get(self.details?.split(',')[0] || self.speciesForme);
 		const myHp = this.hpFraction(self.condition);
 
@@ -353,6 +360,21 @@ export class FakemonBot {
 			multiplier *= 2 ** this.dex.getEffectiveness(type, defType);
 		}
 		return multiplier;
+	}
+
+	/**
+	 * A slot on the bot's own side, written the way the protocol wants it:
+	 * negative, counted from 1. `adjacentAlly` needs a living partner;
+	 * `adjacentAllyOrSelf` falls back to the user itself.
+	 */
+	private allyTarget(
+		target: string, pokemon: AnyObject[], activeCount: number, index: number
+	): string | null {
+		for (let slot = 0; slot < activeCount; slot++) {
+			if (slot === index) continue;
+			if (pokemon[slot] && !pokemon[slot].condition.endsWith(' fnt')) return `${-(slot + 1)}`;
+		}
+		return target === 'adjacentAllyOrSelf' ? `${-(index + 1)}` : null;
 	}
 
 	private bestTarget(move: Move, self: AnyObject, foes: [string, FoeInfo][]): string | null {

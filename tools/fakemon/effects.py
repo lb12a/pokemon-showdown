@@ -1397,11 +1397,22 @@ def r_haze_switch(sp, m):
     sp.set('onHit', "(target) => { target.clearBoosts(); }")
 
 
-@rule(r'User switches out, (?:heals replacement by 1/8 HP|replacement heals 25% HP)|'
-      r'Heals target by 50%, cures status, user switches out')
+@rule(r'User switches out, (?:heals replacement by 1/8 HP|replacement heals 25% HP)')
 def r_healing_wish_like(sp, m):
     sp.set('selfSwitch', 'true')
     sp.set('sideCondition', "'fakemonrelayheal'")
+
+
+@rule(r'Heals target by (\d+)%, cures status, user switches out')
+def r_heal_target_then_pivot(sp, m):
+    # The heal lands on the chosen target (an ally or the user), then the user
+    # leaves - not on the replacement, which is a different move entirely.
+    pct = int(m.group(1))
+    sp.set('selfSwitch', 'true')
+    sp.set('onHit', "(target, source) => {\n"
+                    f"\t\tsource.battle.heal(target.baseMaxhp * {pct} / 100, target, source);\n"
+                    "\t\ttarget.cureStatus();\n"
+                    "\t}")
 
 
 @rule(r'User faints, next Pok[eé]mon is fully healed and gets \+1 all stats')
