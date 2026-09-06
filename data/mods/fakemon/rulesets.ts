@@ -23,6 +23,7 @@ import { toID } from '../../../sim/dex-data';
 
 const LEGAL_SPECIES = new Set<string>(FakemonIndex.species.map(toID));
 const LEGAL_MOVES = new Set<string>([
+	...FakemonIndex.effectMoves,
 	...FakemonIndex.genericMoves,
 	...Object.keys(FakemonIndex.signatureMoves),
 ]);

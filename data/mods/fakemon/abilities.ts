@@ -463,9 +463,11 @@ export const Abilities: import('../../../sim/dex-abilities').ModdedAbilityDataTa
 		name: "Cabinet Lock",
 		shortDesc: "Other Ghost-type Pokemon cannot switch out (their own moves still work).",
 		onFoeTrapPokemon(pokemon) {
-			if (pokemon.hasType('Ghost') && pokemon.isAdjacent(this.effectState.target as Pokemon)) {
-				pokemon.tryTrap(true);
-			}
+			if (!pokemon.hasType('Ghost') || !pokemon.isAdjacent(this.effectState.target as Pokemon)) return;
+			// Ghost types are normally immune to being trapped, and Haunted Room
+			// makes every Pokemon count as a Ghost - going through `tryTrap`
+			// would therefore refuse every single target this ability has.
+			pokemon.trapped = true;
 		},
 		onFoeMaybeTrapPokemon(pokemon, source) {
 			source = source || this.effectState.target as Pokemon;

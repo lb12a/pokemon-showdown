@@ -224,15 +224,41 @@ const Teams = {
 		return { name: name || 'New team', format: 'singles', sets: [this.blankSet()] };
 	},
 	blankSet() {
-		return { species: '', ability: '', item: '', moves: ['', '', '', ''], spread: 'auto', level: 100 };
+		return {
+			species: '', ability: '', item: '', moves: ['', '', '', ''], level: 100,
+			nature: 'Serious',
+			evs: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+			ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 },
+			// Only read when the team is handed to the bot; on your own team the
+			// engine already lets everything Mega Evolve.
+			mega: false,
+		};
 	},
 	/**
-	 * EV spread and nature. The source files say nothing about EVs, so a set gets
-	 * a sensible competitive spread; `auto` picks one from the base stats.
-	 * The validator rejects a set with no EVs at all, so this is not optional.
+	 * Teams saved before EVs, IVs and natures were editable only carried a
+	 * spread preset. Fill the missing fields in from that preset once, so an
+	 * old team keeps the spread it used to play with.
 	 */
-	spreadFor(species, set) {
-		let spread = set.spread || 'auto';
+	migrate(set) {
+		if (!set.evs || !set.ivs || !set.nature) {
+			const species = D.pokedex[toID(set.species)];
+			const preset = species ? this.presetFor(species, set.spread) : null;
+			set.nature = set.nature || preset?.nature || 'Serious';
+			set.evs = set.evs || { ...{ hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 }, ...(preset?.evs || {}) };
+			set.ivs = set.ivs || { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 };
+			delete set.spread;
+		}
+		if (set.level === undefined) set.level = 100;
+		if (set.mega === undefined) set.mega = false;
+		return set;
+	},
+	/**
+	 * A starting point for a spread. EVs, IVs and the nature are edited by hand
+	 * now; these presets are the one-click fill, and what an old saved team is
+	 * migrated from.
+	 */
+	presetFor(species, spread) {
+		spread = spread || 'auto';
 		if (spread === 'auto') {
 			const s = species.baseStats;
 			const bulky = (s.def + s.spd + s.hp) > (s.atk + s.spa + s.spe);
@@ -250,21 +276,145 @@ const Teams = {
 		return team.sets.filter(set => set.species).map(set => {
 			const species = D.pokedex[toID(set.species)];
 			if (!species) return '';
+			this.migrate(set);
 			const moves = set.moves.filter(Boolean).map(toID).join(',');
-			const { nature, evs } = this.spreadFor(species, set);
 			const level = clampLevel(set.level);
+			const evs = { ...set.evs };
 			// Showdown flags a level-50 set with a round EV total as a probable
 			// import mistake; one spare EV point is the documented "I meant it".
-			if (level !== 100) evs.hp = Math.min(252, (evs.hp || 0) + 1);
-			const packedEvs = ['hp', 'atk', 'def', 'spa', 'spd', 'spe']
-				.map(stat => evs[stat] || '').join(',');
+			if (level !== 100 && Object.values(evs).reduce((a, b) => a + b, 0) % 4 === 0) {
+				evs.hp = Math.min(252, (evs.hp || 0) + 1);
+			}
+			const packedEvs = STATS.map(stat => evs[stat] || '').join(',');
+			// 31 is the default, so a full spread packs as an empty field.
+			const ivs = STATS.map(stat => (set.ivs[stat] === 31 ? '' : String(set.ivs[stat] ?? 31)));
+			const packedIvs = ivs.every(value => value === '') ? '' : ivs.join(',');
 			// name|species|item|ability|moves|nature|evs|gender|ivs|shiny|level|happiness
 			return [
 				species.name, '', toID(set.item), toID(set.ability), moves,
-				nature, packedEvs, '', '', '', level === 100 ? '' : String(level), '',
+				set.nature || 'Serious', packedEvs, '', packedIvs, '',
+				level === 100 ? '' : String(level), '',
 			].join('|');
 		}).filter(Boolean).join(']');
 	},
+	/**
+	 * Pokemon Showdown's text format.
+	 *
+	 * `(M)` after the species is this game's Mega marker, not a gender: the
+	 * team builder has no genders, and a packed set from here always leaves the
+	 * gender field empty. On import both `(M)` and `(Mega)` are accepted.
+	 */
+	export(team) {
+		return team.sets.filter(set => set.species).map(set => {
+			this.migrate(set);
+			const species = D.pokedex[toID(set.species)];
+			const lines = [];
+			const item = D.items[toID(set.item)];
+			lines.push(`${species ? species.name : set.species}${set.mega ? ' (M)' : ''}` +
+				(item ? ` @ ${item.name}` : ''));
+			if (set.ability) lines.push(`Ability: ${set.ability}`);
+			const level = clampLevel(set.level);
+			if (level !== 100) lines.push(`Level: ${level}`);
+			const evs = STATS.filter(stat => set.evs[stat])
+				.map(stat => `${set.evs[stat]} ${STAT_LABEL[stat]}`);
+			if (evs.length) lines.push(`EVs: ${evs.join(' / ')}`);
+			lines.push(`${set.nature || 'Serious'} Nature`);
+			const ivs = STATS.filter(stat => (set.ivs[stat] ?? 31) !== 31)
+				.map(stat => `${set.ivs[stat]} ${STAT_LABEL[stat]}`);
+			if (ivs.length) lines.push(`IVs: ${ivs.join(' / ')}`);
+			for (const move of set.moves.filter(Boolean)) {
+				lines.push(`- ${D.moves[toID(move)]?.name || move}`);
+			}
+			return lines.join('\n');
+		}).join('\n\n');
+	},
+	/** Reads the text format back. Returns { sets, problems }. */
+	import(text) {
+		const problems = [];
+		const sets = [];
+		let set = null;
+		const statByLabel = {};
+		for (const stat of STATS) statByLabel[STAT_LABEL[stat].toLowerCase()] = stat;
+
+		const finish = () => {
+			if (set) sets.push(set);
+			set = null;
+		};
+		for (const raw of String(text).split('\n')) {
+			const line = raw.trim();
+			if (!line) { finish(); continue; }
+
+			if (line.startsWith('-') || line.startsWith('~')) {
+				if (!set) continue;
+				const name = line.slice(1).trim().split('[')[0].trim();
+				const move = D.moves[toID(name)];
+				if (!move) { problems.push(`Unknown move "${name}".`); continue; }
+				if (set.moves.filter(Boolean).length >= 4) {
+					problems.push(`${set.species} has more than four moves; the extra ones were dropped.`);
+					continue;
+				}
+				set.moves[set.moves.findIndex(slot => !slot)] = move.name;
+				continue;
+			}
+			const labelled = /^([A-Za-z .]+):\s*(.*)$/.exec(line);
+			if (set && labelled) {
+				const key = labelled[1].trim().toLowerCase();
+				const value = labelled[2].trim();
+				if (key === 'ability') {
+					set.ability = value;
+				} else if (key === 'level') {
+					set.level = clampLevel(value);
+				} else if (key === 'evs' || key === 'ivs') {
+					const target = key === 'evs' ? set.evs : set.ivs;
+					if (key === 'ivs') for (const stat of STATS) target[stat] = 31;
+					for (const part of value.split('/')) {
+						const [amount, label] = part.trim().split(/\s+/);
+						const stat = statByLabel[(label || '').toLowerCase()];
+						if (stat) target[stat] = Math.max(0, Math.min(key === 'evs' ? 252 : 31, Number(amount) || 0));
+					}
+				}
+				// Shiny, Happiness, Tera Type and the rest of the format are read
+				// and ignored: this game does not have them.
+				continue;
+			}
+			const nature = /^([A-Za-z]+)\s+Nature/.exec(line);
+			if (set && nature) {
+				if (NATURES[nature[1]]) set.nature = nature[1];
+				else problems.push(`Unknown nature "${nature[1]}".`);
+				continue;
+			}
+
+			// Anything else starts a new Pokemon.
+			finish();
+			let head = line;
+			let mega = false;
+			let item = '';
+			const at = head.lastIndexOf(' @ ');
+			if (at !== -1) {
+				item = head.slice(at + 3).trim();
+				head = head.slice(0, at).trim();
+			}
+			head = head.replace(/\((M|Mega)\)\s*$/i, () => { mega = true; return ''; }).trim();
+			head = head.replace(/\((F|M)\)\s*$/i, '').trim();
+			// "Nickname (Species)" - the species in brackets wins.
+			const bracket = /\(([^()]+)\)\s*$/.exec(head);
+			const wanted = bracket ? bracket[1].trim() : head;
+			const species = D.pokedex[toID(wanted)];
+			if (!species) { problems.push(`Unknown Pokémon "${wanted}".`); continue; }
+			set = this.blankSet();
+			set.species = species.name;
+			set.mega = mega;
+			if (item) {
+				const found = D.items[toID(item)];
+				if (found) set.item = found.name;
+				else problems.push(`Unknown item "${item}".`);
+			}
+		}
+		finish();
+		if (!sets.length) problems.push('No Pokémon found in that text.');
+		return { sets: sets.slice(0, 6), problems };
+	},
+
 	/** Problems a player should fix before battling; the server re-checks anyway. */
 	problems(team) {
 		const out = [];
@@ -291,6 +441,19 @@ const Teams = {
 			if (item && item.megaStone && !item.megaStone[species.name]) {
 				out.push(`${item.name} belongs to ${Object.keys(item.megaStone).join('/')}, not ${species.name}.`);
 			}
+			// No item and one to three moves are both perfectly legal; only the
+			// numbers that the server would reject are worth reporting.
+			this.migrate(set);
+			const evTotal = STATS.reduce((total, stat) => total + (set.evs[stat] || 0), 0);
+			if (evTotal > EV_LIMIT) {
+				out.push(`${species.name} has ${evTotal} EVs, more than the limit of ${EV_LIMIT}.`);
+			}
+			for (const stat of STATS) {
+				if ((set.evs[stat] || 0) > 252) out.push(`${species.name}: ${STAT_LABEL[stat]} EVs above 252.`);
+				const iv = set.ivs[stat];
+				if (iv < 0 || iv > 31) out.push(`${species.name}: ${STAT_LABEL[stat]} IVs must be 0-31.`);
+			}
+			if (!NATURES[set.nature]) out.push(`${species.name} has an unknown nature.`);
 		}
 		return out;
 	},
@@ -348,6 +511,14 @@ const UI = {
 		$('#bot-teammode').onchange = () => {
 			$('#bot-own-team-row').hidden = $('#bot-teammode').value !== 'custom';
 		};
+		$('#toggle-port').onclick = () => {
+			const box = $('#team-port');
+			box.hidden = !box.hidden;
+			if (!box.hidden) this.fillPort();
+		};
+		$('#team-export').onclick = () => this.fillPort();
+		$('#team-import').onclick = () => this.importPort(false);
+		$('#team-import-new').onclick = () => this.importPort(true);
 		$('#dex-search').oninput = () => this.renderDex();
 
 		this.renderTeams();
@@ -421,7 +592,11 @@ const UI = {
 					`<div class="problem">The bot's team: ${problems.map(escapeHTML).join('<br />')}</div>`;
 				return;
 			}
-			Net.send(`|/fakemonbotteam ${Teams.pack(botTeam)}`);
+			// Which of the bot's Pokemon it is allowed to Mega Evolve. With
+			// exactly one named, it is guaranteed to use it.
+			const megas = botTeam.sets.filter(set => set.species && set.mega)
+				.map(set => toID(set.species));
+			Net.send(`|/fakemonbotteam megas=${megas.join(',')};${Teams.pack(botTeam)}`);
 		}
 		setTimeout(() => {
 			Net.send(`|/fakemonbot ${format}, ${name}, ${mode}, ${difficulty}`);
@@ -500,6 +675,7 @@ const UI = {
 	renderTeamEditor() {
 		const team = Teams.all[this.editing];
 		while (team.sets.length < 6) team.sets.push(Teams.blankSet());
+		team.sets.forEach(set => Teams.migrate(set));
 		const wrap = $('#team-slots');
 		wrap.innerHTML = '';
 		team.sets.forEach((set, i) => wrap.appendChild(this.renderSlot(team, set, i)));
@@ -509,6 +685,33 @@ const UI = {
 			`<div class="problem">${problems.map(escapeHTML).join('<br />')}</div>` :
 			`<div class="ok">Team is legal.</div>`;
 		this.refreshTeamPickers();
+	},
+	fillPort() {
+		$('#team-port-text').value = Teams.export(Teams.all[this.editing]);
+		$('#team-port-result').textContent = '';
+	},
+	importPort(asNewTeam) {
+		const { sets, problems } = Teams.import($('#team-port-text').value);
+		const box = $('#team-port-result');
+		if (!sets.length) {
+			box.innerHTML = `<div class="problem">${problems.map(escapeHTML).join('<br />')}</div>`;
+			return;
+		}
+		if (asNewTeam) {
+			const team = Teams.blank(`Imported ${Teams.all.length + 1}`);
+			team.sets = sets;
+			Teams.all.push(team);
+			this.editing = Teams.all.length - 1;
+		} else {
+			Teams.all[this.editing].sets = sets;
+		}
+		Teams.save();
+		this.renderTeamEditor();
+		this.refreshTeamPickers();
+		box.innerHTML = problems.length ?
+			`<div class="problem">Imported ${sets.length} Pokémon, with problems:<br />` +
+			`${problems.map(escapeHTML).join('<br />')}</div>` :
+			`<div class="ok">Imported ${sets.length} Pokémon.</div>`;
 	},
 	renderSlot(team, set, index) {
 		const slot = el('div', 'slot');
@@ -555,14 +758,27 @@ const UI = {
 				Teams.save();
 				this.renderTeamEditor();
 			}));
-			grid.appendChild(this.picker('EV spread', [
+			grid.appendChild(this.picker('Nature',
+				Object.keys(NATURES).sort().map(name => {
+					const [up, down] = NATURES[name];
+					return [name, up ? `${name} (+${STAT_LABEL[up]}, -${STAT_LABEL[down]})` : `${name} (neutral)`];
+				}), set.nature, value => {
+					set.nature = value;
+					Teams.save();
+					this.renderTeamEditor();
+				}));
+			grid.appendChild(this.picker('Fill spread', [
+				['', 'Keep what is set'],
 				['auto', 'Auto (from base stats)'],
 				['physical', 'Physical sweeper'],
 				['special', 'Special sweeper'],
 				['fast', 'Fast attacker'],
 				['bulky', 'Bulky wall'],
-			], set.spread || 'auto', value => {
-				set.spread = value;
+			], '', value => {
+				if (!value) return;
+				const preset = Teams.presetFor(species, value);
+				set.nature = preset.nature;
+				for (const stat of STATS) set.evs[stat] = preset.evs[stat] || 0;
 				Teams.save();
 				this.renderTeamEditor();
 			}));
@@ -586,12 +802,32 @@ const UI = {
 
 			const stats = species.baseStats;
 			const bst = Object.values(stats).reduce((a, b) => a + b, 0);
-			const { nature, evs } = Teams.spreadFor(species, set);
 			slot.appendChild(el('div', 'statline',
-				`HP ${stats.hp} · Atk ${stats.atk} · Def ${stats.def} · ` +
+				`Base: HP ${stats.hp} · Atk ${stats.atk} · Def ${stats.def} · ` +
 				`SpA ${stats.spa} · SpD ${stats.spd} · Spe ${stats.spe} · BST ${bst}`));
-			slot.appendChild(el('div', 'statline', `${nature} · EVs ` +
-			Object.entries(evs).map(([stat, value]) => `${value} ${stat.toUpperCase()}`).join(' / ')));
+			slot.append(
+				this.statRow('EVs', set, 'evs', 0, 252, species),
+				this.statRow('IVs', set, 'ivs', 0, 31, species)
+			);
+			const level = clampLevel(set.level);
+			slot.appendChild(el('div', 'statline', `At level ${level}: ` + STATS.map(stat =>
+				`${STAT_LABEL[stat]} ${finalStat(stat, stats[stat], set.evs[stat] || 0,
+					set.ivs[stat] ?? 31, level, set.nature)}`).join(' · ')));
+
+			// Only the bot reads this; on your own team every Pokemon may Mega
+			// Evolve anyway, so it is labelled as what it is.
+			const megaFlag = el('label', 'mega-flag');
+			const box = el('input');
+			box.type = 'checkbox';
+			box.checked = !!set.mega;
+			box.onchange = () => {
+				set.mega = box.checked;
+				Teams.save();
+				this.renderTeamEditor();
+			};
+			megaFlag.append(box, el('span', null,
+				'Bot may Mega Evolve this one  (marked "(M)" on export; no effect on your own team)'));
+			slot.appendChild(megaFlag);
 
 			// Mega information (spec 13): what this Pokemon becomes, and how.
 			const mega = D.megas[toID(species.name)];
@@ -617,6 +853,43 @@ const UI = {
 		}
 		return slot;
 	},
+	/** Six number inputs for one of the two stat spreads. */
+	statRow(label, set, key, min, max, species) {
+		const wrap = el('div');
+		const grid = el('div', 'ev-grid');
+		const total = el('div', 'ev-total');
+		const refreshTotal = () => {
+			if (key !== 'evs') return;
+			const sum = STATS.reduce((acc, stat) => acc + (set.evs[stat] || 0), 0);
+			total.textContent = `${sum} / ${EV_LIMIT} EVs`;
+			total.classList.toggle('over', sum > EV_LIMIT);
+		};
+		for (const stat of STATS) {
+			const cell = el('label', null, `${label === 'EVs' ? '' : ''}${STAT_LABEL[stat]}`);
+			const input = el('input');
+			input.type = 'number';
+			input.min = String(min);
+			input.max = String(max);
+			input.value = String(set[key][stat] ?? (key === 'ivs' ? 31 : 0));
+			input.oninput = () => {
+				const value = Math.max(min, Math.min(max, Math.round(Number(input.value) || 0)));
+				set[key][stat] = value;
+				refreshTotal();
+				Teams.save();
+			};
+			// Re-render once the field is left, so the stat line catches up.
+			input.onchange = () => this.renderTeamEditor();
+			cell.appendChild(input);
+			grid.appendChild(cell);
+		}
+		wrap.append(el('div', 'statline', label), grid);
+		if (key === 'evs') {
+			refreshTotal();
+			wrap.appendChild(total);
+		}
+		return wrap;
+	},
+
 	picker(label, options, value, onChange) {
 		const wrap = el('label', null, label);
 		const select = el('select');
@@ -702,6 +975,35 @@ function speciesOptions() {
 }
 const ITEM_GROUP_ORDER = ['Mega Stone', 'Core', 'Food', 'Consumable', 'Battle gear', 'Permanent gear'];
 
+/** The six stats, in the order every packed team and every UI row uses. */
+const STATS = ['hp', 'atk', 'def', 'spa', 'spd', 'spe'];
+const STAT_LABEL = { hp: 'HP', atk: 'Atk', def: 'Def', spa: 'SpA', spd: 'SpD', spe: 'Spe' };
+
+/** The 25 natures: which stat each one raises and which it lowers. */
+const NATURES = {
+	Hardy: [], Lonely: ['atk', 'def'], Brave: ['atk', 'spe'], Adamant: ['atk', 'spa'],
+	Naughty: ['atk', 'spd'], Bold: ['def', 'atk'], Docile: [], Relaxed: ['def', 'spe'],
+	Impish: ['def', 'spa'], Lax: ['def', 'spd'], Timid: ['spe', 'atk'], Hasty: ['spe', 'def'],
+	Serious: [], Jolly: ['spe', 'spa'], Naive: ['spe', 'spd'], Modest: ['spa', 'atk'],
+	Mild: ['spa', 'def'], Quiet: ['spa', 'spe'], Bashful: [], Rash: ['spa', 'spd'],
+	Calm: ['spd', 'atk'], Gentle: ['spd', 'def'], Sassy: ['spd', 'spe'], Careful: ['spd', 'spa'],
+	Quirky: [],
+};
+const EV_LIMIT = 510;
+
+/** The stat a level, base stat, IV, EV and nature actually produce. */
+function finalStat(stat, base, ev, iv, level, nature) {
+	if (stat === 'hp') {
+		if (base === 1) return 1;
+		return Math.floor((2 * base + iv + Math.floor(ev / 4)) * level / 100) + level + 10;
+	}
+	const raw = Math.floor((2 * base + iv + Math.floor(ev / 4)) * level / 100) + 5;
+	const [up, down] = NATURES[nature] || [];
+	if (up === stat) return Math.floor(raw * 1.1);
+	if (down === stat) return Math.floor(raw * 0.9);
+	return raw;
+}
+
 /** Levels a Pokemon can be sent out at. 100 is the default. */
 const LEVELS = Array.from({ length: 100 }, (_, i) => String(100 - i));
 function clampLevel(value) {
@@ -750,6 +1052,40 @@ function itemOptions(species) {
 		});
 }
 
+/**
+ * What a win would be worth.
+ *
+ * The dex defines no experience yield or trainer payout, so both are derived:
+ * a species' base yield is 45% of its base stat total (which puts a 320 BST
+ * starter near 144 and a 600 BST legendary near 270, the range the real games
+ * use), and the trainer payout is the usual 60 per level of the last Pokemon
+ * they sent out. Everything else is the normal Pokemon maths.
+ */
+const REWARDS = {
+	/** Base experience yield, derived from the base stat total. */
+	baseYield(speciesName) {
+		const species = D.pokedex[toID(speciesName)];
+		if (!species) return 60;
+		const bst = Object.values(species.baseStats).reduce((a, b) => a + b, 0);
+		return Math.round(bst * 0.45);
+	},
+	/**
+	 * Gen 5+ experience: floor(floor(b * L / 5) / s * scale) + 1, where the
+	 * scale term is ((2L + 10) / (L + Lp + 10)) ^ 2.5.
+	 */
+	exp(defeatedSpecies, defeatedLevel, winnerLevel, participants) {
+		const b = this.baseYield(defeatedSpecies);
+		const L = Math.max(1, defeatedLevel);
+		const Lp = Math.max(1, winnerLevel);
+		const scale = ((2 * L + 10) / (L + Lp + 10)) ** 2.5;
+		return Math.floor(Math.floor(b * L / 5) / Math.max(1, participants) * scale) + 1;
+	},
+	/** A trainer pays out 60 per level of the last Pokemon they used. */
+	prizeMoney(lastLevel) {
+		return 60 * Math.max(1, lastLevel);
+	},
+};
+
 // =====================================================================
 // Battle
 // =====================================================================
@@ -776,6 +1112,11 @@ const Battle = {
 			// In doubles a turn needs one choice per active Pokemon; they are
 			// collected here and sent together.
 			choices: [],
+			// Everything the reward screen needs: who fainted at what level,
+			// and which of your Pokemon were out at the time.
+			knockouts: [],
+			levels: {},
+			roster: [],
 		};
 		UI.show('battle');
 	},
@@ -815,7 +1156,13 @@ const Battle = {
 			const nick = p[1].split(': ')[1];
 			const species = p[2].split(',')[0].trim();
 			const mon = this.mon(room, pos);
-			Object.assign(mon, { species, nick, hp: 100, maxhp: 100, status: '', fainted: false });
+			// "Species, L50, M" - the level is only in the switch details.
+			const level = Number(/L(\d+)/.exec(p[2])?.[1]) || 100;
+			Object.assign(mon, { species, nick, level, hp: 100, maxhp: 100, status: '', fainted: false });
+			room.levels[species] = level;
+			if (pos.slice(0, 2) === room.mySide && !room.roster.includes(species)) {
+				room.roster.push(species);
+			}
 			if (p[0] !== 'detailschange') mon.mega = false;
 			this.setHP(mon, p[3]);
 			if (p[0] === 'switch' || p[0] === 'drag') {
@@ -846,9 +1193,20 @@ const Battle = {
 			break;
 		}
 		case 'faint': {
-			const mon = this.mon(room, p[1].split(':')[0]);
+			const pos = p[1].split(':')[0];
+			const mon = this.mon(room, pos);
 			mon.fainted = true;
 			mon.hp = 0;
+			if (pos.slice(0, 2) !== room.mySide) {
+				// Everything of yours that is out shares the experience, which is
+				// how the games have counted participants since Gen 5.
+				room.knockouts.push({
+					species: mon.species,
+					level: mon.level || 100,
+					participants: (room.active[room.mySide] || [])
+						.filter(active => active && !active.fainted).map(active => active.species),
+				});
+			}
 			this.log(roomid, `${mon.species} fainted!`, 'faint');
 			this.render(roomid);
 			break;
@@ -899,6 +1257,7 @@ const Battle = {
 			this.log(roomid, `${p[1]} won the battle!`, 'win');
 			room.request = null;
 			this.renderControls(roomid);
+			this.showRewards(roomid, p[1]);
 			break;
 		case 'tie':
 			this.log(roomid, `The battle ended in a tie.`, 'win');
@@ -917,6 +1276,54 @@ const Battle = {
 			this.renderControls(roomid);
 			break;
 		}
+	},
+	/**
+	 * The win screen: what this battle would have been worth in a real game.
+	 * Nothing is stored or spent - it is shown because it is the number a
+	 * trainer would care about.
+	 */
+	showRewards(roomid, winner) {
+		const room = this.rooms[roomid];
+		if (!room || room.rewardsShown) return;
+		room.rewardsShown = true;
+		const mine = room.sides[room.mySide]?.name;
+		if (mine && winner && toID(winner) !== toID(mine)) return;
+		if (!room.knockouts.length) return;
+
+		const earned = new Map();
+		for (const species of room.roster) earned.set(species, 0);
+		for (const ko of room.knockouts) {
+			const participants = ko.participants.length || 1;
+			for (const species of ko.participants) {
+				const level = room.levels[species] || 100;
+				earned.set(species, (earned.get(species) || 0) +
+				REWARDS.exp(ko.species, ko.level, level, participants));
+			}
+		}
+		const lastLevel = room.knockouts[room.knockouts.length - 1].level;
+		const money = REWARDS.prizeMoney(lastLevel);
+
+		const box = el('div', 'rewards');
+		box.appendChild(el('h3', null, 'Spoils'));
+		const table = el('table');
+		const head = el('tr');
+		for (const label of ['Pokémon', 'Level', 'EXP']) head.appendChild(el('th', null, label));
+		table.appendChild(head);
+		for (const [species, exp] of earned) {
+			if (!exp) continue;
+			const row = el('tr');
+			row.append(
+				el('td', null, species),
+				el('td', null, `L${room.levels[species] || 100}`),
+				el('td', null, `${exp}`)
+			);
+			table.appendChild(row);
+		}
+		box.appendChild(table);
+		box.appendChild(el('div', 'statline', `Prize money: ₽${money}`));
+		box.appendChild(el('div', 'hint',
+			'Worked out with the normal Pokémon formulas; nothing is saved between battles.'));
+		room.node.querySelector('.controls').appendChild(box);
 	},
 	title(roomid) {
 		const room = this.rooms[roomid];

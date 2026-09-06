@@ -163,6 +163,7 @@ export const Scripts: ModdedBattleScriptsData = {
 		const keepMoves = new Set<string>([
 			...FakemonIndex.genericMoves,
 			...Object.keys(FakemonIndex.signatureMoves),
+			...FakemonIndex.effectMoves,
 		]);
 		const keepAbilities = new Set<string>([
 			...Object.keys(FakemonIndex.abilities),

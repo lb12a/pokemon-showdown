@@ -107,8 +107,23 @@
 			<div class="row">
 				<button class="primary" id="save-team">Save</button>
 				<button id="copy-team">Duplicate</button>
+				<button id="toggle-port">Import / Export</button>
 				<button class="danger" id="delete-team">Delete</button>
 				<button id="close-team">Back</button>
+			</div>
+			<div id="team-port" hidden>
+				<p class="hint">
+					Normal Pok&eacute;mon Showdown text format. <strong>(M)</strong> after the
+					species means the bot is allowed to Mega Evolve it - it does nothing on
+					your own team.
+				</p>
+				<textarea id="team-port-text" rows="14" spellcheck="false"></textarea>
+				<div class="row">
+					<button id="team-export">Fill with this team</button>
+					<button class="primary" id="team-import">Replace team with this text</button>
+					<button id="team-import-new">Import as a new team</button>
+				</div>
+				<div id="team-port-result"></div>
 			</div>
 			<div id="team-validation"></div>
 		</div>

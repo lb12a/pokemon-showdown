@@ -46,15 +46,23 @@ export class FakemonBot {
 	private readonly foes = new Map<string, FoeInfo>();
 	private mySide: SideID = 'p2';
 	private megaUsed = false;
+	/**
+	 * Which of its Pokemon the player allowed the bot to Mega Evolve. Empty
+	 * means "whichever it likes"; exactly one means that one always does, the
+	 * first turn it is out and able to.
+	 */
+	private readonly megaSpecies: Set<ID>;
 	private lastMoveWasProtect = false;
 
 	constructor(options: {
 		name?: string, difficulty?: BotDifficulty, seed?: PRNG | PRNGSeed | null, mod?: string,
+		megaSpecies?: string[],
 	} = {}) {
 		this.name = options.name || 'Fakemon Bot';
 		this.difficulty = options.difficulty || 'normal';
 		this.dex = Dex.mod(options.mod || 'fakemon');
 		this.prng = PRNG.get(options.seed ?? null);
+		this.megaSpecies = new Set((options.megaSpecies || []).map(name => this.dex.toID(name)));
 	}
 
 	/** Feed the bot one line of the public battle log. */
@@ -230,8 +238,7 @@ export class FakemonBot {
 
 			// --- Mega Evolution ---------------------------------------------
 			let suffix = '';
-			if (active.canMegaEvo && !this.megaUsed && !megaThisTurn &&
-				DIFFICULTY[this.difficulty].mega) {
+			if (active.canMegaEvo && !this.megaUsed && !megaThisTurn && this.mayMega(self)) {
 				this.megaUsed = true;
 				megaThisTurn = true;
 				suffix = ' mega';
@@ -360,6 +367,18 @@ export class FakemonBot {
 			multiplier *= 2 ** this.dex.getEffectiveness(type, defType);
 		}
 		return multiplier;
+	}
+
+	/**
+	 * May this Pokemon Mega Evolve right now? With a list from the player, only
+	 * the Pokemon on it may - and if the list names exactly one, that one does
+	 * so regardless of how careful the difficulty otherwise is.
+	 */
+	private mayMega(self: AnyObject): boolean {
+		if (!this.megaSpecies.size) return DIFFICULTY[this.difficulty].mega;
+		const species = this.dex.toID((self.details || self.speciesForme || '').split(',')[0]);
+		if (!this.megaSpecies.has(species)) return false;
+		return this.megaSpecies.size === 1 || DIFFICULTY[this.difficulty].mega;
 	}
 
 	/**

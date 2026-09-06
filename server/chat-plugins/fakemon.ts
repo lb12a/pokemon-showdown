@@ -31,7 +31,20 @@ const DIFFICULTIES: BotDifficulty[] = ['easy', 'normal', 'hard'];
  * client sends `/fakemonbotteam` first and the battle command picks it up here.
  * One entry per player, replaced by the next upload and dropped on logout.
  */
-const botTeams = new Map<ID, string>();
+const botTeams = new Map<ID, { team: string, megaSpecies: string[] }>();
+
+/**
+ * `megas=<ids>;<packed team>`. The packed format uses `|` and `]` and never a
+ * semicolon, so this prefix cannot collide with a real team.
+ */
+function parseBotTeam(input: string) {
+	const match = /^megas=([^;]*);([\s\S]*)$/.exec(input);
+	if (!match) return { team: input, megaSpecies: [] as string[] };
+	return {
+		team: match[2],
+		megaSpecies: match[1].split(',').map(toID).filter(Boolean),
+	};
+}
 
 /** Descriptions live on the raw data entries, not on the runtime classes. */
 function describe(entry: AnyObject | undefined): string {
@@ -96,11 +109,14 @@ export const commands: Chat.ChatCommands = {
 		// "custom": you built both sides, so the bot's team is validated the
 		// same way your own is - it is player input reaching the battle engine.
 		let preparedBotTeam: string | undefined;
+		let megaSpecies: string[] = [];
 		if (teamMode === 'custom' && !generatesTeams) {
-			preparedBotTeam = botTeams.get(user.id);
-			if (!preparedBotTeam) {
+			const prepared = botTeams.get(user.id);
+			if (!prepared) {
 				return this.errorReply(`Send the bot's team with /fakemonbotteam first.`);
 			}
+			preparedBotTeam = prepared.team;
+			megaSpecies = prepared.megaSpecies;
 			const problems = TeamValidator.get(format.id).validateTeam(Teams.unpack(preparedBotTeam));
 			if (problems) {
 				return this.errorReply(`The bot's team is not legal: ${problems.join(' ')}`);
@@ -118,7 +134,12 @@ export const commands: Chat.ChatCommands = {
 			format: format.id,
 			players: [{ user, team: playerTeam, hidden: false, inviteOnly: false }],
 			// p2 is played by the AI: RoomBattle fills the slot and drives it.
-			bots: { p2: { name: botName, team: botTeam, bot: new FakemonBot({ name: botName, difficulty }) } },
+			bots: {
+				p2: {
+					name: botName, team: botTeam,
+					bot: new FakemonBot({ name: botName, difficulty, megaSpecies }),
+				},
+			},
 			isPrivate: true,
 		});
 		if (!battleRoom) return this.errorReply(`Could not start the battle.`);
@@ -129,18 +150,30 @@ export const commands: Chat.ChatCommands = {
 	},
 	fakemonbotteam(target, room, user) {
 		this.checkChat();
-		const packed = target.trim();
-		if (!packed) {
+		const input = target.trim();
+		if (!input) {
 			botTeams.delete(user.id);
 			return this.sendReply(`Cleared the team you had prepared for the bot.`);
 		}
+		const { team: packed, megaSpecies } = parseBotTeam(input);
 		const team = Teams.unpack(packed);
 		if (!team?.length) return this.errorReply(`That is not a readable packed team.`);
-		botTeams.set(user.id, packed);
-		this.sendReply(`Stored a ${team.length}-Pokemon team for the bot.`);
+		const known = new Set<string>(team.map(set => toID(set.species || set.name)));
+		const unknown = megaSpecies.filter(id => !known.has(id));
+		if (unknown.length) {
+			return this.errorReply(`Not on that team, so it cannot Mega Evolve: ${unknown.join(', ')}.`);
+		}
+		botTeams.set(user.id, { team: packed, megaSpecies });
+		this.sendReply(
+			`Stored a ${team.length}-Pokemon team for the bot` +
+			(megaSpecies.length === 1 ? `; it will always Mega Evolve ${megaSpecies[0]}.` :
+			megaSpecies.length ? `; it may Mega Evolve ${megaSpecies.join(', ')}.` :
+			`; it may Mega Evolve whichever it likes.`)
+		);
 	},
 	fakemonbotteamhelp: [
-		`/fakemonbotteam [packed team] - Hand the bot a team you built, for /fakemonbot's "custom" mode.`,
+		`/fakemonbotteam [megas=ids;][packed team] - Hand the bot a team you built, for /fakemonbot's "custom" mode.`,
+		`The optional megas= list names which of them may Mega Evolve; with exactly one named it always will.`,
 		`Sending it without a team forgets the stored one. The built-in client does this for you.`,
 	],
 

@@ -1261,6 +1261,27 @@ export const FakemonIndex = {
   "bramblegown": "Bramble Gown",
   "berryburst": "Berry Burst"
  },
+ "effectMoves": [
+  "auroracurtain",
+  "bloomfield",
+  "boulderfield",
+  "caltropfield",
+  "emberbrand",
+  "frostbind",
+  "hailcall",
+  "hazefield",
+  "itemseal",
+  "mindfield",
+  "raincall",
+  "sandcall",
+  "snowcall",
+  "sparkfield",
+  "statswap",
+  "tidalblessing",
+  "timewarp",
+  "venomcaltrops",
+  "bulwark"
+ ],
  "abilities": {
   "grassstarter": "Grass-Starter",
   "madness": "Madness",

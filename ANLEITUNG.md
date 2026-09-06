@@ -155,6 +155,58 @@ Im Teambuilder tauchen jetzt auf:
 * **Budpup / Budruff / Mudruff** je in **Bobtail** (+Vert), **Beagle** (+Ang)
   und **Dalmatian** (+Init) — die Fellart bleibt beim Entwickeln erhalten
 
+### Teams kopieren (Showdown-Format)
+
+Im Teambuilder auf **Import / Export**. Oben steht dein Team im normalen
+Pokémon-Showdown-Textformat, das du herauskopieren kannst; hineinkopierten
+Text übernimmst du mit *„Replace team with this text"* oder
+*„Import as a new team"*.
+
+```
+Bunbombard (M) @ Bunbombardite
+Ability: Kamikaze
+Level: 50
+EVs: 4 HP / 252 Atk / 252 Spe
+Adamant Nature
+IVs: 0 SpA
+- All-Out Cry
+- Tsunami
+```
+
+Das **(M)** hinter dem Namen ist die Mega-Markierung (kein Geschlecht — das
+gibt es hier nicht): es sagt, dass **der Bot** dieses Pokémon
+megaentwickeln darf. Auf deinem eigenen Team hat es keine Wirkung, weil bei dir
+ohnehin jedes Pokémon megaentwickeln kann.
+
+### Dem Bot vorschreiben, was megaentwickeln darf
+
+Im Teambuilder gibt es pro Pokémon das Häkchen **„Bot may Mega
+Evolve this one"**. Baust du damit ein Team und gibst es dem Bot (Modus *„You
+pick both teams"*), gilt:
+
+* mehrere angehakt → der Bot sucht sich eines davon aus
+* **genau eines angehakt → der Bot megaentwickelt es garantiert**, auch auf
+  „Easy", wo er es sonst nie tut
+* keines angehakt → er entscheidet selbst
+
+### EVs, IVs und Wesen
+
+Jedes Pokémon hat jetzt sechs **EV**-Felder (mit Zähler bis 510),
+sechs **IV**-Felder und alle 25 **Wesen** zur Auswahl — genau wie bei normalen
+Pokémon. Darunter steht immer, welche Werte dabei herauskommen. Wer es
+schnell will, nimmt *„Fill spread"* und lässt eine fertige Verteilung
+eintragen.
+
+**Kein Item und weniger als vier Attacken sind erlaubt.** Ein Pokémon mit
+einer einzigen Attacke und ohne Item ist ein gültiges Set.
+
+### Nach dem Sieg: EXP und Preisgeld
+
+Gewinnst du, erscheint unter den Knöpfen die Tabelle **Spoils**: wie viel
+EXP jedes deiner beteiligten Pokémon nach den normalen
+Pokémon-Formeln bekommen würde und wie viel Preisgeld. Es wird nur
+angezeigt und nichts gespeichert.
+
 ### Bot
 
 Im Chat eintippen:
@@ -193,11 +245,45 @@ normal — die Bilder sind noch Platzhalter.
 npx mocha
 ```
 
-Muss `2434 passing` melden, `0 failing`.
+Muss `2445 passing` melden, `0 failing`.
 
 ---
 
-## 4. Wenn etwas nicht stimmt
+## 4. Selbst Attacken und Fähigkeiten ändern
+
+Ausführlich steht das in [`DATA_GUIDE.md`](DATA_GUIDE.md) unter *„The two
+questions everyone asks"*. Kurzfassung:
+
+**Fähigkeiten eines Pokémon ändern** → `tools/fakemon/build.py`,
+Tabelle `SPECIES_FIXUPS`:
+
+```python
+SPECIES_FIXUPS = {
+    'Chronowl': {'abilities': {'0': 'Slowmofly', '1': 'Reckless'}},
+}
+```
+
+**Attacken ändern** → drei Wege:
+
+1. alle Pokémon mit einer bestimmten Fähigkeit sollen eine Art
+   Attacke bekommen → `ABILITY_SYNERGY` in `build.py`
+2. eine Effekt-Attacke auf bestimmte Linien verteilen → `EFFECT_MOVES` in
+   `build.py`
+3. genau ein Pokémon soll genau eine Attacke lernen →
+   `data/mods/fakemon/learnsets.ts`, im `Overrides`-Block
+
+Danach immer:
+
+```powershell
+python3 tools/fakemon/build.py
+node build
+node tools/fakemon/check.js
+```
+
+Der letzte Befehl muss `ERRORS: 0` sagen — er meckert auch, wenn du dich
+vertippt hast (`unknown ability "Slowmofli"`).
+
+## 5. Wenn etwas nicht stimmt
 
 **Es erscheinen alte Pokémon oder alte Items im Teambuilder**
 → `node build` noch einmal laufen lassen, dann die Seite mit **Strg+F5**

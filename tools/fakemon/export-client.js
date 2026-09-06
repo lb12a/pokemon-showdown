@@ -234,7 +234,7 @@ function writeAssetManifest(dex, index) {
 	const speciesNames = Object.keys(dex.data.Pokedex).map(id => dex.species.get(id).name);
 	// Only the selectable moves - the whitelisted mechanic providers nobody can
 	// pick do not need artwork.
-	const moveNames = [...index.genericMoves, ...Object.keys(index.signatureMoves)]
+	const moveNames = [...index.genericMoves, ...Object.keys(index.signatureMoves), ...index.effectMoves]
 		.map(id => dex.moves.get(id).name);
 	const abilityNames = Object.keys(dex.data.Abilities)
 		.filter(id => id !== 'noability').map(id => dex.abilities.get(id).name);

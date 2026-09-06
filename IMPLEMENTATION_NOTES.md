@@ -22,7 +22,7 @@ Showdown data is not available to players in any way.
 
 ```
 169 Pokémon  (189 dex entries, including 20 Mega formes)
-884 moves     (171 of them signature moves from the dex PDF)
+903 moves     (171 signature, 19 effect setters, the rest generated)
 186 abilities (166 normal + 20 Mega abilities)
 240 items     (20 Mega Stones + 20 core items + the four item spreadsheets)
                 50 food items        (Pokemon_Food_Items)
@@ -234,7 +234,34 @@ attacking side and its own typing. Chronowl, for instance, now learns three
 field setters for Slowmofly to stretch. Every species with a synergy ability
 has at least one matching move; the count is checked in the test suite.
 
-## 5d. Ability announcements
+## 5d. A setter for every effect
+
+Every status, weather, terrain, room and side condition should be something a
+team can actually reach. Most already had a move; the gaps were the ones only
+an *original* Showdown move could set — rain, sandstorm, hail, snow, the four
+terrains, the three rooms, Spikes, Toxic Spikes, Stealth Rock, Aurora Veil —
+which nobody in this game can learn, plus burn, freeze and the
+type-regeneration field, which nothing set at all.
+
+`data/mods/fakemon/moves-effects.ts` adds 19 moves for exactly those, and
+`EFFECT_MOVES` in the generator hands each one to three evolution lines (the
+type it matches decides which). **Bulwark**, the protecting move, goes to every
+single Pokémon.
+
+The data check enforces both rules, so a future regeneration cannot quietly
+leave an effect unreachable again:
+
+```
+Ember Brand: only 1 evolution line(s) can learn it
+Bulwark: 4 Pokémon cannot learn it
+```
+
+Evolution levels are no longer emitted with the species. This game has no
+levelling up and no evolving, so the only thing an evolution level ever did was
+forbid a level the player deliberately picked ("Hallowisp must be at least
+level 36 to be evolved").
+
+## 5e. Ability announcements
 
 Showdown only prints an ability when the ability's own code calls `-ability`, so
 most of the 186 custom abilities changed damage, stats, priority or the move
@@ -268,7 +295,7 @@ Two guards keep the log readable:
 
 The client renders the line as *"Concreet's Curing Form took effect!"*.
 
-## 5e. Doubles targeting and move targets
+## 5f. Doubles targeting and move targets
 
 A double battle in Showdown lets you aim at **any** adjacent Pokémon, your own
 partner included — the engine has always allowed `move 1 -2`. The built-in
@@ -452,7 +479,55 @@ Two additions to the built-in client:
   mistake; the client adds the one spare EV point that is the documented way of
   saying "I meant it".
 
-## 9b. Known limitations
+## 9b. Spreads, import/export and the spoils screen
+
+**EVs, IVs and natures** are edited exactly like a normal Pokémon: six EV boxes
+with a running total against the 510 limit, six IV boxes, and all 25 natures
+with what each one raises and lowers. The old spread presets survive as a
+one-click *Fill spread*, and a team saved before this update is migrated from
+its old preset the first time it is opened. The slot shows the stats the level,
+base stats, IVs, EVs and nature actually produce.
+
+**Import and export** use the normal Pokémon Showdown text format, so a team can
+be pasted in from anywhere and copied back out:
+
+```
+Bunbombard (M) @ Bunbombardite
+Ability: Kamikaze
+Level: 50
+EVs: 4 HP / 252 Atk / 252 Spe
+Adamant Nature
+IVs: 0 SpA
+- All-Out Cry
+- Tsunami
+```
+
+`(M)` after the species is this game's **Mega marker**, not a gender: the team
+builder has no genders and never writes one. It says the *bot* may Mega Evolve
+that Pokémon; on your own team it does nothing, because everything of yours can
+Mega Evolve anyway. `(Mega)` is accepted on import as well.
+
+**The bot's Mega permissions** ride along with its team. A packed team is full
+of commas and cannot fit in `/fakemonbot`'s argument list, so the client sends
+`/fakemonbotteam megas=<ids>;<packed team>` first. With several named, the bot
+picks among them as it likes; with **exactly one** named it is guaranteed to
+Mega Evolve that one, even on Easy, which otherwise never does.
+
+**The spoils screen** appears after a win. The dex defines no experience yield
+or trainer payout, so both are derived and documented in the code: a species'
+base yield is 45% of its base stat total (a 320 BST starter lands near 144, a
+600 BST legendary near 270 — the range the real games use), and the trainer pays
+the usual 60 per level of the last Pokémon they sent out. Everything else is the
+normal Gen 5+ maths, participants and all:
+
+```
+exp = floor(floor(b × L / 5) / participants × ((2L + 10) / (L + Lp + 10))^2.5) + 1
+```
+
+Nothing is stored or spent between battles — it is shown because it is the
+number a trainer would care about.
+
+## 9c. Known limitations
 
 * **Sprites are placeholders.** Every Pokemon renders as the placeholder until
   you drop real art into `assets/`. See `assets/README.md`.
@@ -472,7 +547,7 @@ Two additions to the built-in client:
 * **Balance is a first pass.** The data check flags no broken combinations, but
   884 moves have not been playtested against each other.
 
-## 9c. The calculation audit
+## 9d. The calculation audit
 
 After the items went in, everything was checked for effects that *look*
 implemented but never actually run. Two harnesses did the work:
@@ -512,6 +587,7 @@ data/mods/fakemon/            the whole custom game
   pokedex.ts moves.ts learnsets.ts formats-data.ts   (wrappers)
   moves-signature.ts          171 hand-implemented signature moves
   abilities.ts                186 hand-implemented abilities
+  moves-effects.ts            a setter for every effect, plus Bulwark
   items.ts                    index: Mega Stones, core food, utility items
   items-food.ts               50 food items      (Pokemon_Food_Items)
   items-consumables.ts        50 consumables     (New_Unique_Consumable_Items)
@@ -554,7 +630,7 @@ test/sim/data.js       exempt the fakemon mod from the "no imports" rule,
 ```bash
 node build                       # compile
 node tools/fakemon/check.js      # data + balance report (0 errors)
-npx mocha                        # the suite (runs everything: 2434 tests)
+npx mocha                        # the suite (runs everything: 2445 tests)
 python3 tools/fakemon/build.py   # regenerate + report uncompiled effect text
 npx eslint                       # clean
 npx tsc --noEmit                 # clean

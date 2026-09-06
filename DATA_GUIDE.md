@@ -40,6 +40,89 @@ goes in the top-level files, which are merged **on top of** the generated data.
 
 ---
 
+## The two questions everyone asks
+
+### "How do I change which abilities a Pokémon can have?"
+
+Open **`tools/fakemon/build.py`** and find `SPECIES_FIXUPS`. Add or edit an
+entry with the Pokémon's exact name:
+
+```python
+SPECIES_FIXUPS = {
+    'Chronowl': {'abilities': {'0': 'Slowmofly', '1': 'Dimensional Force', 'H': 'Reckless'}},
+}
+```
+
+`'0'` is the first ability, `'1'` the second, `'H'` the hidden one. Use as many
+or as few as you like, and write the ability's **name** exactly as it appears in
+`data/mods/fakemon/abilities.ts`. Then:
+
+```bash
+python3 tools/fakemon/build.py     # rewrites the generated dex and learnsets
+node build                         # compiles and refreshes the client's data
+node tools/fakemon/check.js        # must say ERRORS: 0
+```
+
+The check catches a typo for you (`Chronowl: unknown ability "Slowmofli"`).
+
+Doing it this way rather than editing `generated/pokedex.ts` matters: the
+learnsets are built *from* the species data, so the generator also gives the
+Pokémon the moves its new ability rewards (see `ABILITY_SYNERGY` below).
+
+### "How do I change which moves a Pokémon can learn?"
+
+Learnsets are generated, so there are three levers, from broadest to most
+specific:
+
+**1. A whole family of Pokémon should get a kind of move** — because of an
+ability. Edit `ABILITY_SYNERGY` in `build.py`:
+
+```python
+    'slowmofly': ['field'],           # weather / terrain / room / screen setters
+    'firestarter': ['type:Fire'],
+    'conestorage': ['flag:bullet'],
+```
+
+Every Pokémon with that ability is then guaranteed three matching moves. The
+usable kinds are listed right above the table.
+
+**2. One move should be on specific lines** — for the effect setters. Edit
+`EFFECT_MOVES` in `build.py`; the type you give it decides which lines get it,
+and `EFFECT_MOVE_LINES` decides how many:
+
+```python
+EFFECT_MOVES = {
+    'raincall': 'Water',       # goes to three Water-ish lines
+}
+UNIVERSAL_MOVES = ['bulwark']  # goes to literally everybody
+```
+
+**3. One exact Pokémon should learn one exact move** — the direct route. Open
+`data/mods/fakemon/learnsets.ts` and put it in `Overrides`, which is layered on
+top of the generated table:
+
+```ts
+const Overrides: import('../../../sim/dex-species').ModdedLearnsetDataTable = {
+	chronowl: {
+		learnset: {
+			...GeneratedLearnsets.chronowl.learnset,
+			timewarp: ['9M'],
+			bulwark: ['9M'],
+		},
+	},
+};
+```
+
+Spreading the generated learnset first keeps everything it already had; leave
+that line out and you replace the learnset entirely, which is the way to take
+moves *away*. `'9M'` means "learnable in this generation" and is all this game
+uses. After either route run `node build` and reload the page with **Ctrl+F5**.
+
+**Where the names come from:** every move id is the name in lowercase with
+everything but letters and digits removed — `Rain Call` is `raincall`,
+`Reaper's Scythe` is `reapersscythe`. `node tools/fakemon/check.js` tells you
+straight away if you got one wrong.
+
 ## Adding a Pokémon
 
 Open `data/mods/fakemon/pokedex.ts` and add it to `Overrides`:
@@ -297,6 +380,14 @@ The available kinds are listed above the table (`type:X`, `category:X`,
 `flag:X`, `weight`, `field`, `priority`, `recoil`, `multihit`, `protect`,
 `spinning`, `lowbp`, `paralyze`). An unknown kind stops the build rather than
 silently doing nothing.
+
+## Adding a move that sets an effect
+
+`data/mods/fakemon/moves-effects.ts` holds one setter per status, weather,
+terrain, room and side condition. Add the move there, then add its id and the
+type it belongs to in `EFFECT_MOVES` in `tools/fakemon/build.py` — that is what
+puts it on real Pokémon. The data check fails if a setter ends up on fewer than
+two evolution lines, so it can never quietly become unusable.
 
 ## Adding a field effect
 

@@ -60,7 +60,9 @@ function main() {
 	const moveIds = new Set(Object.keys(dex.data.Moves));
 	const abilityIds = new Set(Object.keys(dex.data.Abilities));
 	const itemIds = new Set(Object.keys(dex.data.Items));
-	const customMoveIds = new Set([...index.genericMoves, ...Object.keys(index.signatureMoves)]);
+	const customMoveIds = new Set([
+		...index.genericMoves, ...Object.keys(index.signatureMoves), ...index.effectMoves,
+	]);
 
 	// ---------------------------------------------------------------- Pokemon
 	for (const id of speciesIds) {
@@ -160,7 +162,8 @@ function main() {
 			error(`${move.name}: invalid accuracy (${move.accuracy})`);
 		}
 		if (!move.target) error(`${move.name}: no target`);
-		if (Math.abs(move.priority) > 6) error(`${move.name}: priority out of range`);
+		// -7 is the engine's floor, used by the Trick Room family.
+		if (move.priority > 6 || move.priority < -7) error(`${move.name}: priority out of range`);
 
 		// Balance: power has to be paid for.
 		const effectivePower = move.basePower * (Array.isArray(move.multihit) ?
@@ -221,6 +224,39 @@ function main() {
 			}
 		}
 	}
+	// ------------------------------------------------- effect setter moves
+	// A setter nobody learns is no better than no setter at all.
+	const lineOf = name => {
+		let species = dex.species.get(name);
+		while (species.prevo) species = dex.species.get(species.prevo);
+		return species.baseSpecies || species.name;
+	};
+	const linesLearning = new Map();
+	for (const id of speciesIds) {
+		const species = dex.species.get(id);
+		if (species.isMega) continue;
+		const line = lineOf(species.name);
+		for (const moveId of Object.keys(dex.species.getLearnsetData(id).learnset || {})) {
+			if (!linesLearning.has(moveId)) linesLearning.set(moveId, new Set());
+			linesLearning.get(moveId).add(line);
+		}
+	}
+	for (const id of index.effectMoves) {
+		const move = dex.moves.get(id);
+		if (!move.exists) {
+			error(`effect setter "${id}" is in the index but not in the move table`);
+			continue;
+		}
+		const lines = linesLearning.get(id)?.size || 0;
+		if (id === 'bulwark') {
+			const without = speciesIds.filter(sid => !dex.species.get(sid).isMega &&
+				!(dex.species.getLearnsetData(sid).learnset || {}).bulwark);
+			if (without.length) error(`${move.name}: ${without.length} Pokémon cannot learn it`);
+		} else if (lines < 2) {
+			error(`${move.name}: only ${lines} evolution line(s) can learn it`);
+		}
+	}
+
 	// Every Mega forme needs a stone, and every stone a forme.
 	for (const [baseId, info] of Object.entries(index.megas)) {
 		if (!itemIds.has(info.stoneId)) error(`${info.stone}: Mega Stone missing from items`);

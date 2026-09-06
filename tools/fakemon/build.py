@@ -782,7 +782,11 @@ def render_species(entry):
     fields['color'] = json.dumps(entry['color'])
     if entry.get('prevo'):
         fields['prevo'] = json.dumps(entry['prevo'])
-        fields['evoLevel'] = entry['evoLevel']
+        # No `evoLevel`: this game has no levelling up and no evolving, and a
+        # level is a free choice from 1 to 100. The only thing an evolution
+        # level does here is forbid that, with "must be at least level 36 to be
+        # evolved" from the validator.
+        fields['evoType'] = json.dumps('other')
     if entry.get('evos'):
         fields['evos'] = json.dumps(entry['evos'])
     fields['eggGroups'] = json.dumps(entry['eggGroups'])
@@ -920,6 +924,76 @@ def synergy_match(kind, mid, fields, raw, weight_moves):
         blob = ''.join(str(fields.get(key, '')) for key in ('status', 'secondary', 'secondaries'))
         return "'par'" in blob
     raise SystemExit(f'ABILITY_SYNERGY uses an unknown kind: {kind}')
+
+
+# ---------------------------------------------------------------------------
+# Effect setters
+# ---------------------------------------------------------------------------
+# `data/mods/fakemon/moves-effects.ts` adds a setter for every status, weather,
+# terrain, room and side condition that was previously only reachable through
+# an original Showdown move nobody can learn. A move nobody learns is no better
+# than no move at all, so each one is handed to the lines below - the type it
+# matches decides which, and every entry lands on at least two evolution lines.
+# `Bulwark` is the exception: every Pokemon in the game learns it.
+EFFECT_MOVES = {
+    'emberbrand': 'Fire',
+    'frostbind': 'Ice',
+    'raincall': 'Water',
+    'sandcall': 'Rock',
+    'hailcall': 'Ice',
+    'snowcall': 'Ice',
+    'sparkfield': 'Electric',
+    'bloomfield': 'Grass',
+    'hazefield': 'Fairy',
+    'mindfield': 'Psychic',
+    'timewarp': 'Psychic',
+    'itemseal': 'Psychic',
+    'statswap': 'Psychic',
+    'auroracurtain': 'Ice',
+    'caltropfield': 'Bug',
+    'venomcaltrops': 'Poison',
+    'boulderfield': 'Rock',
+    'tidalblessing': 'Water',
+}
+
+
+# Moves literally everything learns.
+UNIVERSAL_MOVES = ['bulwark']
+
+# How many evolution lines each effect setter is spread over.
+EFFECT_MOVE_LINES = 3
+
+
+def distribute_effect_moves(species, learnsets):
+    """Put every effect setter on a few lines, and Bulwark on all of them."""
+    lines = {}
+    for sp in species:
+        if sp.get('isMega'):
+            continue
+        root = sp.get('baseSpecies') or sp['name']
+        while True:
+            parent = next((o for o in species if o['name'] == root), None)
+            if not parent or not parent.get('prevo'):
+                break
+            root = parent['prevo']
+        lines.setdefault(root, []).append(sp)
+
+    for move_id, move_type in EFFECT_MOVES.items():
+        ranked = sorted(
+            lines.items(),
+            key=lambda item: (
+                0 if any(move_type in sp['types'] for sp in item[1]) else 1,
+                -seeded('effect', move_id, item[0]),
+                item[0],
+            ),
+        )
+        for _root, members in ranked[:EFFECT_MOVE_LINES]:
+            for sp in members:
+                learnsets[toID(sp['name'])]['learnset'].setdefault(move_id, []).append('9M')
+
+    for move_id in UNIVERSAL_MOVES:
+        for entry in learnsets.values():
+            entry['learnset'].setdefault(move_id, []).append('9M')
 
 
 def build_learnsets(species, generic, signatures, weight_moves=()):
@@ -1087,6 +1161,7 @@ def main():
         sp['family'] = next(f for f in families if f['page'] == sp['family']['page'])
     signatures = {id(f): [toID(m['name']) for m in f['moves']] for f in families}
     learnsets = build_learnsets(species, generic, signatures, weight_moves)
+    distribute_effect_moves(species, learnsets)
     lines = []
     for sid, data in learnsets.items():
         inner = '\n'.join(f'\t\t\t{mid}: {json.dumps(sources)},'.replace('"', "'")
@@ -1140,6 +1215,10 @@ def main():
         'baseSpecies': [sp['name'] for sp in species if not sp.get('isMega')],
         'genericMoves': sorted(seen),
         'signatureMoves': sig_moves,
+        # The hand-written setters in moves-effects.ts, plus the moves every
+        # Pokemon learns. They are ordinary selectable moves, so they belong in
+        # the keep-list the data separation and the client bundle read.
+        'effectMoves': sorted(EFFECT_MOVES) + sorted(UNIVERSAL_MOVES),
         'abilities': sig_abilities,
         'megaAbilities': mega_abilities,
         'megas': megas,

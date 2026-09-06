@@ -330,6 +330,186 @@ describe('Fakemon: the four item spreadsheets', () => {
 	});
 });
 
+describe('Fakemon: effect setters', () => {
+	before(() => dex.includeData());
+	beforeEach(() => {
+		battle = null;
+	});
+	afterEach(() => {
+		if (battle) battle.destroy();
+		battle = null;
+	});
+
+	/** The root of an evolution line, which is what "a line" means here. */
+	const lineOf = name => {
+		let species = dex.species.get(name);
+		while (species.prevo) species = dex.species.get(species.prevo);
+		return species.baseSpecies || species.name;
+	};
+
+	it('should let at least two lines learn every effect setter', () => {
+		const lines = new Map();
+		for (const id of Object.keys(dex.data.Pokedex)) {
+			const species = dex.species.get(id);
+			if (species.isMega) continue;
+			const line = lineOf(species.name);
+			for (const moveId of Object.keys(dex.species.getLearnsetData(id).learnset || {})) {
+				if (!lines.has(moveId)) lines.set(moveId, new Set());
+				lines.get(moveId).add(line);
+			}
+		}
+		for (const id of FakemonIndex.effectMoves) {
+			if (id === 'bulwark') continue;
+			assert(dex.moves.get(id).exists, `${id} should exist`);
+			assert((lines.get(id)?.size || 0) >= 2,
+				`${id} is only learnable by ${lines.get(id)?.size || 0} line(s)`);
+		}
+	});
+
+	it('should give every Pokemon the protecting move', () => {
+		for (const id of Object.keys(dex.data.Pokedex)) {
+			if (dex.species.get(id).isMega) continue;
+			const learnset = dex.species.getLearnsetData(id).learnset || {};
+			assert(learnset.bulwark, `${dex.species.get(id).name} cannot learn Bulwark`);
+		}
+	});
+
+	it('should reach every weather, terrain, room and hazard with a custom move', () => {
+		// A setter that only an original Showdown move could reach is a setter
+		// nobody in this game can use.
+		const wanted = [
+			'brn', 'par', 'slp', 'frz', 'psn', 'tox',
+			'sunnyday', 'raindance', 'sandstorm', 'snowscape', 'hail', 'fullmoon', 'fakemonmiasma',
+			'electricterrain', 'grassyterrain', 'mistyterrain', 'psychicterrain',
+			'trickroom', 'magicroom', 'wonderroom', 'hauntedroom', 'glitchedroom',
+			'reflect', 'lightscreen', 'auroraveil', 'safeguard', 'tailwind',
+			'spikes', 'toxicspikes', 'stealthrock', 'stickyweb', 'livewire',
+		];
+		const custom = new Set([
+			...FakemonIndex.genericMoves, ...Object.keys(FakemonIndex.signatureMoves),
+			...FakemonIndex.effectMoves,
+		]);
+		const reached = new Set();
+		for (const id of custom) {
+			const move = dex.data.Moves[id];
+			if (!move) continue;
+			for (const key of ['weather', 'terrain', 'pseudoWeather', 'sideCondition', 'status']) {
+				if (move[key]) reached.add(dex.toID(move[key]));
+			}
+			if (move.self?.sideCondition) reached.add(dex.toID(move.self.sideCondition));
+			const body = [move.onHit, move.onHitField, move.onAfterHit].map(String).join('');
+			for (const effect of wanted) if (body.includes(`'${effect}'`)) reached.add(effect);
+		}
+		const missing = wanted.filter(id => !reached.has(id));
+		assert.equal(missing.length, 0, `no custom move sets: ${missing.join(', ')}`);
+	});
+
+	it('should actually set the effect it names', () => {
+		battle = fakemon.createBattle([[
+			{ species: 'Pumpini', ability: 'grassstarter', moves: ['sparkfield', 'raincall', 'bulwark'] },
+		], [
+			{ species: 'Sprank', ability: 'cabinetlock', moves: ['furniturehaunt'] },
+		]]);
+		battle.makeChoices('move 1', 'move 1');
+		assert(battle.field.isTerrain('electricterrain'), 'Spark Field should set Electric Terrain');
+		battle.makeChoices('move 2', 'move 1');
+		assert(battle.field.isWeather('raindance'), 'Rain Call should start rain');
+		battle.makeChoices('move 3', 'move 1');
+		// The protect volatile only lasts the turn, so the log is the record.
+		assert(battle.log.some(line => line.includes('-singleturn') && line.includes('Protect')),
+			'Bulwark should put up a protection');
+	});
+});
+
+describe('Fakemon: sets and trapping', () => {
+	before(() => dex.includeData());
+	beforeEach(() => {
+		battle = null;
+	});
+	afterEach(() => {
+		if (battle) battle.destroy();
+		battle = null;
+	});
+
+	const validator = () => new TeamValidator('fakemonsingles');
+	const sample = () => {
+		const species = dex.species.get('Pumpini');
+		return {
+			species: 'Pumpini', ability: species.abilities[0], name: 'x',
+			moves: Object.keys(dex.species.getLearnsetData(species.id).learnset).slice(0, 4),
+			evs: { hp: 4, atk: 252, def: 0, spa: 0, spd: 0, spe: 252 }, nature: 'Adamant', level: 100,
+		};
+	};
+
+	it('should accept a set with no item and a single move', () => {
+		const set = { ...sample(), item: '', moves: [sample().moves[0]] };
+		assert.equal(validator().validateTeam([set]), null);
+	});
+
+	it('should accept an evolved Pokemon at any level', () => {
+		// This game has no levelling up, so an evolution level would only ever
+		// forbid a level the player deliberately chose.
+		for (const level of [1, 5, 50, 100]) {
+			const set = {
+				...sample(), species: 'Hallowisp', level,
+				evs: { hp: 5, atk: 252, def: 0, spa: 0, spd: 0, spe: 252 },
+			};
+			set.ability = dex.species.get('Hallowisp').abilities[0];
+			set.moves = Object.keys(dex.species.getLearnsetData('hallowisp').learnset).slice(0, 2);
+			assert.equal(validator().validateTeam([set]), null, `level ${level} should be legal`);
+		}
+	});
+
+	it('should reject more than 510 EVs', () => {
+		const set = { ...sample(), evs: { hp: 252, atk: 252, def: 252, spa: 0, spd: 0, spe: 0 } };
+		assert(validator().validateTeam([set]), 'an over-limit spread should be rejected');
+	});
+
+	it('should let Cabinet Lock trap what Haunted Room turned into a Ghost', () => {
+		// Ghosts are normally immune to trapping, and Haunted Room makes
+		// everything a Ghost - so the ability has to bypass that immunity or it
+		// can never trap anybody.
+		battle = fakemon.createBattle([[
+			{ species: 'Bytebug', ability: 'hover', moves: ['sugarcrush'] },
+			{ species: 'Pumpini', ability: 'grassstarter', moves: ['sugarcrush'] },
+		], [
+			{ species: 'Sprank', ability: 'cabinetlock', moves: ['furniturehaunt'] },
+			{ species: 'Spukasten', ability: 'cabinetlock', moves: ['furniturehaunt'] },
+		]]);
+		battle.makeChoices('move 1', 'move 1');
+		battle.makeChoices('move 1', 'move 1');
+		assert(battle.field.getPseudoWeather('hauntedroom'), 'Haunted Room should be up');
+		const pokemon = battle.p1.active[0];
+		assert(pokemon.hasType('Ghost'), 'Haunted Room should have made it a Ghost');
+		assert(battle.p1.activeRequest.active[0].trapped, 'and Cabinet Lock should hold it');
+	});
+});
+
+describe("Fakemon: the bot's Mega permissions", () => {
+	const request = () => ({
+		active: [{ canMegaEvo: true, moves: [{ id: 'sugarcrush', move: 'Sugarcrush', target: 'normal' }] }],
+		side: { pokemon: [{ details: 'Hallowisp, L100, M', condition: '300/300', active: true }] },
+	});
+
+	it('should always Mega Evolve the one Pokemon it was allowed to', () => {
+		// Even on easy, which normally never Mega Evolves.
+		const bot = new FakemonBot({ name: 'B', difficulty: 'easy', megaSpecies: ['hallowisp'] });
+		assert(bot.decide(request()).includes('mega'));
+	});
+
+	it('should never Mega Evolve one it was not allowed to', () => {
+		const bot = new FakemonBot({ name: 'B', difficulty: 'hard', megaSpecies: ['bytebug'] });
+		assert.false(bot.decide(request()).includes('mega'));
+	});
+
+	it('should fall back to its own judgement with no list', () => {
+		const bot = new FakemonBot({ name: 'B', difficulty: 'easy' });
+		assert.false(bot.decide(request()).includes('mega'), 'easy never megas on its own');
+		const hard = new FakemonBot({ name: 'B', difficulty: 'hard' });
+		assert(hard.decide(request()).includes('mega'), 'hard does');
+	});
+});
+
 describe('Fakemon: formes and levels', () => {
 	before(() => dex.includeData());
 	beforeEach(() => {

@@ -173,3 +173,48 @@ main { padding: 18px; max-width: 1200px; margin: 0 auto; }
 	.log { height: 260px; }
 	.move-grid { grid-template-columns: 1fr; }
 }
+
+/* ---------------------------------------------------------------- import */
+#team-port textarea {
+	width: 100%;
+	box-sizing: border-box;
+	font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+	background: var(--panel-2);
+	color: var(--text);
+	border: 1px solid var(--line);
+	border-radius: 8px;
+	padding: 10px;
+	resize: vertical;
+}
+.ev-grid {
+	display: grid;
+	grid-template-columns: repeat(6, minmax(0, 1fr));
+	gap: 6px;
+	margin-top: 8px;
+}
+.ev-grid label {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: .04em;
+	color: var(--muted);
+}
+.ev-grid input {
+	width: 100%;
+	box-sizing: border-box;
+	background: var(--panel-2);
+	color: var(--text);
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	padding: 4px 6px;
+	font: inherit;
+}
+.ev-total { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.ev-total.over { color: var(--bad); }
+.mega-flag { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-top: 8px; }
+.rewards { margin-top: 10px; }
+.rewards table { border-collapse: collapse; width: 100%; font-size: 12px; }
+.rewards th, .rewards td { text-align: left; padding: 3px 8px 3px 0; }
+.rewards th { color: var(--muted); font-weight: 600; }
