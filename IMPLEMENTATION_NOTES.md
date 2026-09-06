@@ -482,14 +482,20 @@ Two additions to the built-in client:
 ## 9b. Spreads, import/export and the spoils screen
 
 **EVs, IVs and natures** are edited exactly like a normal Pokémon: six EV boxes
-with a running total against the 510 limit, six IV boxes, and all 25 natures
-with what each one raises and lowers. The old spread presets survive as a
+capped at 252 each and 508 in total (508 is what is actually spendable, and the
+server's own limit is 510, so anything the builder accepts is legal there),
+six IV boxes, and all 25 natures with what each one raises and lowers. Typing
+past the total clamps to what is still free instead of quietly making the team
+illegal. The old spread presets survive as a
 one-click *Fill spread*, and a team saved before this update is migrated from
 its old preset the first time it is opened. The slot shows the stats the level,
 base stats, IVs, EVs and nature actually produce.
 
-**Import and export** use the normal Pokémon Showdown text format, so a team can
-be pasted in from anywhere and copied back out:
+**Import and export** are always visible at the bottom of the team editor - not
+behind a toggle, and the box is filled with the team you are looking at, so
+there is nothing to open first and nothing that can be out of date. They use
+the normal Pokémon Showdown text format, so a team can be pasted in from
+anywhere and copied back out:
 
 ```
 Bunbombard (M) @ Bunbombardite
@@ -526,6 +532,14 @@ exp = floor(floor(b × L / 5) / participants × ((2L + 10) / (L + Lp + 10))^2.5)
 
 Nothing is stored or spent between battles — it is shown because it is the
 number a trainer would care about.
+
+### A team is one to six Pokémon
+
+An empty slot is left empty: `pack()` skips it, the validator is happy with a
+team of one, and the editor prints "2 of 6 Pokémon" so it is clear that this is
+intended rather than an unfinished team. The same line spells out that no item
+and one to three moves are legal, and names which Pokémon the bot may Mega
+Evolve.
 
 ## 9c. Known limitations
 
@@ -636,8 +650,10 @@ claude/pokemon-showdown-custom-system-eszso4 @ 8524a9b3 · built 2026-09-06 19:0
 
 `/fakemonversion` answers the same question from the server side, listing the
 data counts and the effect setters. And the client's own files are served with
-`cacheTime: 0`, because an hour-old `index.html` or `fakemon-data.js` makes a
-fresh pull look like nothing changed at all.
+`Cache-Control: no-store, must-revalidate`, because an hour-old `index.html` or
+`fakemon-data.js` makes a fresh pull look like nothing changed at all;
+`max-age=0` was not enough, since a browser may still serve a stale copy from
+its back/forward cache without asking.
 
 Two things made a stale build possible in the first place, both fixed:
 
@@ -658,7 +674,7 @@ Two things made a stale build possible in the first place, both fixed:
 ```bash
 node build                       # compile
 node tools/fakemon/check.js      # data + balance report (0 errors)
-npx mocha                        # the suite (runs everything: 2445 tests)
+npx mocha                        # the suite (runs everything: 2448 tests)
 python3 tools/fakemon/build.py   # regenerate + report uncompiled effect text
 npx eslint                       # clean
 npx tsc --noEmit                 # clean

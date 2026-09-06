@@ -106,29 +106,34 @@
 					</select>
 				</label>
 			</div>
+			<p class="hint" id="team-count"></p>
 			<div id="team-slots"></div>
 			<div class="row">
 				<button class="primary" id="save-team">Save</button>
 				<button id="copy-team">Duplicate</button>
-				<button id="toggle-port">Import / Export</button>
 				<button class="danger" id="delete-team">Delete</button>
 				<button id="close-team">Back</button>
 			</div>
-			<div id="team-port" hidden>
+			<div id="team-validation"></div>
+
+			<h3 class="port-title">Import / Export</h3>
+			<div id="team-port">
 				<p class="hint">
-					Normal Pok&eacute;mon Showdown text format. <strong>(M)</strong> after the
-					species means the bot is allowed to Mega Evolve it - it does nothing on
-					your own team.
+					The normal Pok&eacute;mon Showdown text format &mdash; paste a team in, or
+					copy this one out. <strong>(M)</strong> after the species means
+					<em>the bot</em> may Mega Evolve it; on your own team it does nothing,
+					because everything of yours can Mega Evolve anyway.
 				</p>
-				<textarea id="team-port-text" rows="14" spellcheck="false"></textarea>
+				<textarea id="team-port-text" rows="12" spellcheck="false"
+					placeholder="Paste a team here, then press &quot;Replace this team&quot;."></textarea>
 				<div class="row">
-					<button id="team-export">Fill with this team</button>
-					<button class="primary" id="team-import">Replace team with this text</button>
-					<button id="team-import-new">Import as a new team</button>
+					<button id="team-export">&#8681; Copy this team into the box</button>
+					<button id="team-copy">Copy to clipboard</button>
+					<button class="primary" id="team-import">&#8679; Replace this team</button>
+					<button id="team-import-new">&#8679; Import as a new team</button>
 				</div>
 				<div id="team-port-result"></div>
 			</div>
-			<div id="team-validation"></div>
 		</div>
 	</section>
 

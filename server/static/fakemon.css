@@ -225,3 +225,16 @@ main { padding: 18px; max-width: 1200px; margin: 0 auto; }
 	margin-right: 12px;
 	opacity: .75;
 }
+
+.port-title { margin: 18px 0 8px; font-size: 14px; }
+#team-port { border-top: 1px solid var(--line); padding-top: 12px; }
+#team-port .row { margin-top: 8px; flex-wrap: wrap; }
+#team-count { margin: 0 0 10px; }
+.mega-flag {
+	background: var(--panel-2);
+	border: 1px solid var(--line);
+	border-radius: 8px;
+	padding: 8px 10px;
+	line-height: 1.35;
+}
+.mega-flag input { accent-color: var(--accent-2); width: 16px; height: 16px; flex: none; }

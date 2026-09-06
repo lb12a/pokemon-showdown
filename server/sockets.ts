@@ -342,8 +342,15 @@ export class ServerStream extends Streams.ObjectReadWriteStream<string> {
 			const avatarServer = new StaticServer('./config/avatars');
 			// The custom client is rebuilt by `node build`, so it must never be
 			// cached: an hour-old index.html or fakemon-data.js makes a fresh
-			// pull look like nothing changed at all.
-			const staticServer = new StaticServer('./server/static', { cacheTime: 0 });
+			// pull look like nothing changed at all. `no-store` is deliberate -
+			// `max-age=0` still lets a browser serve a stale copy from its
+			// back/forward cache without asking.
+			// `cacheTime: null` turns off the built-in max-age header so the
+			// explicit one below is the one that ships.
+			const staticServer = new StaticServer('./server/static', {
+				cacheTime: null,
+				headers: { 'cache-control': 'no-store, must-revalidate' },
+			});
 			// Artwork for the custom game; see assets/README.md.
 			const assetServer = new StaticServer('./assets');
 			const staticRequestHandler = (req: http.IncomingMessage, res: http.ServerResponse) => {

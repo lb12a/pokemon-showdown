@@ -309,6 +309,109 @@ Im Chat eintippen:
 
 ---
 
+## 2b. Checkliste: alle neuen Features testen
+
+Der Reihe nach durchklicken — jeder Punkt dauert ein paar Sekunden. Vorher
+**einmal Strg+F5**, und oben rechts muss die Build-Zeile stehen.
+
+### A · Import / Export
+
+1. Tab **Teambuilder** → auf ein Team klicken.
+2. Ganz unten steht der Block **Import / Export**. Das Textfeld ist **schon
+   gefüllt** — es muss nichts aufgeklappt werden.
+3. *Copy to clipboard* → das Team liegt in der Zwischenablage.
+4. Text im Feld durch etwas anderes ersetzen, z. B.:
+
+   ```
+   Pumpini (M)
+   Ability: Grass-Starter
+   Level: 42
+   EVs: 4 HP / 252 Atk
+   Jolly Nature
+   IVs: 0 SpA
+   - Sugarcrush
+   ```
+
+5. *⇧ Replace this team* → darunter erscheint „Imported 1 Pokémon.", und oben
+   steht das Pokémon mit Level 42, Jolly, 252 Atk, IV 0 SpA, einer Attacke und
+   ohne Item.
+
+**Erwartet:** genau die Werte aus dem Text, nichts anderes.
+
+### B · Mega-Erlaubnis für den Bot
+
+1. Im Teambuilder bei einem Pokémon das Kästchen **„The bot may Mega Evolve
+   this one"** anhaken.
+2. Ganz oben im Editor erscheint sofort:
+   *„Bot Mega Evolution: Pumpini — guaranteed, because it is the only one
+   marked."*
+3. Im Export steht jetzt `(M)` hinter dem Namen.
+4. Tab **Play** → Bot team auf **„You pick both teams"**, unten das Team des
+   Bots wählen → *Start battle*.
+5. Im Chat antwortet der Server: *„Stored a … team for the bot; it will always
+   Mega Evolve …"*
+
+**Erwartet:** genau ein Häkchen → der Bot megaentwickelt dieses garantiert.
+Mehrere Häkchen → er sucht sich eines aus. Auf deinem eigenen Team ändert das
+Häkchen nichts.
+
+### C · EVs, IVs, Wesen
+
+1. Im Teambuilder bei einem Pokémon in die **EV**-Zeile 252 bei Angriff und
+   252 bei Initiative eintragen.
+2. Der Zähler darunter zeigt **„508 / 508 EVs"**.
+3. Jetzt versuchen, auch bei KP 252 einzutragen → das Feld springt auf den Rest
+   zurück, mehr als 508 lässt es nicht zu.
+4. In der **IV**-Zeile bei Sp.Ang eine 0 eintragen.
+5. Bei **Nature** eines der 25 Wesen wählen.
+6. Die Zeile *„At level 100: HP … Atk … "* darunter ändert sich mit.
+
+**Erwartet:** max. 252 pro Wert, max. 508 gesamt, alle 25 Wesen da, und die
+Endwerte rechnen sich live mit.
+
+### D · Weniger als 6 Pokémon, kein Item, weniger als 4 Attacken
+
+1. Ein Team anlegen, nur **zwei** Slots ausfüllen, die anderen auf „—" lassen.
+2. Bei einem davon **kein Item** und nur **eine** Attacke setzen.
+3. Oben steht *„2 of 6 Pokémon."*, unten **„Team is legal."**
+4. Damit einen Bot-Kampf starten — er startet.
+
+### E · Die neuen Attacken
+
+Tab **Dex**, danach suchen:
+
+* **Bulwark** — der Schutzmove, den *jedes* Pokémon lernt. Im Teambuilder in
+  jedem Attacken-Dropdown zu finden.
+* **Rain Call**, **Sand Call**, **Hail Call**, **Snow Call** — Wetter
+* **Spark Field**, **Bloom Field**, **Haze Field**, **Mind Field** — Terrains
+* **Time Warp**, **Item Seal**, **Stat Swap** — Räume
+* **Caltrop Field**, **Venom Caltrops**, **Boulder Field**, **Aurora Curtain** — Hazards und Schirme
+* **Ember Brand** (Verbrennung), **Frost Bind** (Einfrieren), **Tidal Blessing**
+
+Im Chat geht auch `/fakemondex Bulwark`.
+
+**Erwartet:** jede dieser Attacken ist bei mindestens zwei Entwicklungsreihen
+im Dropdown wählbar; Bulwark bei allen.
+
+### F · Der Endbildschirm
+
+Einen Bot-Kampf **gewinnen**. Unter den Knöpfen erscheint die Tabelle
+**Spoils** mit einer Zeile je beteiligtem Pokémon (Level und EXP) und darunter
+dem Preisgeld.
+
+**Erwartet:** nur nach einem Sieg, nur für die Pokémon, die tatsächlich im
+Kampf waren.
+
+### G · Cabinet Lock im Haunted Room
+
+1. Ein Pokémon mit **Cabinet Lock** (z. B. Sprank) gegen ein beliebiges
+   Nicht-Geist-Pokémon.
+2. Sprank setzt **Furniture Haunt** → Haunted Room steht.
+3. Ab der nächsten Runde sind beim Gegner die **Wechsel-Knöpfe gesperrt**.
+
+**Erwartet:** im Haunted Room zählt jedes Pokémon als Geist, also hält Cabinet
+Lock alles fest.
+
 ## 3. Automatisch prüfen, ohne Klicken
 
 Neues PowerShell-Fenster, wieder **im Ordner `pokemon-showdown`**:
@@ -324,7 +427,7 @@ normal — die Bilder sind noch Platzhalter.
 npx mocha
 ```
 
-Muss `2445 passing` melden, `0 failing`.
+Muss `2448 passing` melden, `0 failing`.
 
 ---
 

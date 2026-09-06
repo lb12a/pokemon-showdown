@@ -511,12 +511,21 @@ const UI = {
 		$('#bot-teammode').onchange = () => {
 			$('#bot-own-team-row').hidden = $('#bot-teammode').value !== 'custom';
 		};
-		$('#toggle-port').onclick = () => {
-			const box = $('#team-port');
-			box.hidden = !box.hidden;
-			if (!box.hidden) this.fillPort();
-		};
+		$('#team-port-text').oninput = () => { this.portDirty = true; };
 		$('#team-export').onclick = () => this.fillPort();
+		$('#team-copy').onclick = async () => {
+			this.fillPort();
+			const text = $('#team-port-text');
+			text.select();
+			try {
+				await navigator.clipboard.writeText(text.value);
+				$('#team-port-result').innerHTML = `<div class="ok">Copied to the clipboard.</div>`;
+			} catch {
+				// No clipboard permission (or plain http): the text is selected,
+				// so Ctrl+C still works.
+				$('#team-port-result').innerHTML = `<div class="ok">Selected &mdash; press Ctrl+C.</div>`;
+			}
+		};
 		$('#team-import').onclick = () => this.importPort(false);
 		$('#team-import-new').onclick = () => this.importPort(true);
 		$('#dex-search').oninput = () => this.renderDex();
@@ -681,6 +690,20 @@ const UI = {
 		const team = Teams.all[this.editing];
 		while (team.sets.length < 6) team.sets.push(Teams.blankSet());
 		team.sets.forEach(set => Teams.migrate(set));
+
+		// A team may hold anything from one to six Pokemon; an empty slot is
+		// simply left empty and is not sent to the server.
+		const filled = team.sets.filter(set => set.species).length;
+		const megas = team.sets.filter(set => set.species && set.mega).map(set => set.species);
+		$('#team-count').innerHTML =
+			`<strong>${filled} of 6 Pok&eacute;mon.</strong> Fewer than six is fine &mdash; ` +
+			`leave a slot on &ldquo;&mdash;&rdquo; to skip it. No item and one to three moves ` +
+			`are legal too.` +
+			(megas.length ?
+				`<br />Bot Mega Evolution: <strong>${megas.map(escapeHTML).join(', ')}</strong>` +
+				(megas.length === 1 ? ' &mdash; guaranteed, because it is the only one marked.' :
+				' &mdash; the bot picks one of them.') :
+				'');
 		const wrap = $('#team-slots');
 		wrap.innerHTML = '';
 		team.sets.forEach((set, i) => wrap.appendChild(this.renderSlot(team, set, i)));
@@ -689,14 +712,21 @@ const UI = {
 		$('#team-validation').innerHTML = problems.length ?
 			`<div class="problem">${problems.map(escapeHTML).join('<br />')}</div>` :
 			`<div class="ok">Team is legal.</div>`;
+		// The export box always shows the team you are looking at, so it is never
+		// out of date and never needs to be opened first.
+		if (!this.portDirty) $('#team-port-text').value = Teams.export(team);
 		this.refreshTeamPickers();
 	},
 	fillPort() {
+		this.portDirty = false;
 		$('#team-port-text').value = Teams.export(Teams.all[this.editing]);
 		$('#team-port-result').textContent = '';
 	},
 	importPort(asNewTeam) {
 		const { sets, problems } = Teams.import($('#team-port-text').value);
+		// Counted before rendering: the editor pads the team out to six slots,
+		// and `sets` is the very array it pads.
+		const imported = sets.length;
 		const box = $('#team-port-result');
 		if (!sets.length) {
 			box.innerHTML = `<div class="problem">${problems.map(escapeHTML).join('<br />')}</div>`;
@@ -711,12 +741,13 @@ const UI = {
 			Teams.all[this.editing].sets = sets;
 		}
 		Teams.save();
+		this.portDirty = false;
 		this.renderTeamEditor();
 		this.refreshTeamPickers();
 		box.innerHTML = problems.length ?
-			`<div class="problem">Imported ${sets.length} Pokémon, with problems:<br />` +
+			`<div class="problem">Imported ${imported} Pokémon, with problems:<br />` +
 			`${problems.map(escapeHTML).join('<br />')}</div>` :
-			`<div class="ok">Imported ${sets.length} Pokémon.</div>`;
+			`<div class="ok">Imported ${imported} Pokémon.</div>`;
 	},
 	renderSlot(team, set, index) {
 		const slot = el('div', 'slot');
@@ -811,7 +842,7 @@ const UI = {
 				`Base: HP ${stats.hp} · Atk ${stats.atk} · Def ${stats.def} · ` +
 				`SpA ${stats.spa} · SpD ${stats.spd} · Spe ${stats.spe} · BST ${bst}`));
 			slot.append(
-				this.statRow('EVs', set, 'evs', 0, 252, species),
+				this.statRow('EVs', set, 'evs', 0, EV_MAX_PER_STAT, species),
 				this.statRow('IVs', set, 'ivs', 0, 31, species)
 			);
 			const level = clampLevel(set.level);
@@ -831,7 +862,8 @@ const UI = {
 				this.renderTeamEditor();
 			};
 			megaFlag.append(box, el('span', null,
-				'Bot may Mega Evolve this one  (marked "(M)" on export; no effect on your own team)'));
+				'The bot may Mega Evolve this one — exported as "(M)". ' +
+				'On your own team it has no effect: everything of yours can Mega Evolve anyway.'));
 			slot.appendChild(megaFlag);
 
 			// Mega information (spec 13): what this Pokemon becomes, and how.
@@ -877,7 +909,16 @@ const UI = {
 			input.max = String(max);
 			input.value = String(set[key][stat] ?? (key === 'ivs' ? 31 : 0));
 			input.oninput = () => {
-				const value = Math.max(min, Math.min(max, Math.round(Number(input.value) || 0)));
+				let value = Math.max(min, Math.min(max, Math.round(Number(input.value) || 0)));
+				if (key === 'evs') {
+					// Never let the box go over the total; the leftover is what is
+					// still free, so typing 252 into a fourth stat clamps instead
+					// of quietly making the team illegal.
+					const others = STATS.reduce((sum, other) =>
+						sum + (other === stat ? 0 : set.evs[other] || 0), 0);
+					value = Math.min(value, Math.max(0, EV_LIMIT - others));
+					if (String(value) !== input.value) input.value = String(value);
+				}
 				set[key][stat] = value;
 				refreshTotal();
 				Teams.save();
@@ -887,7 +928,9 @@ const UI = {
 			cell.appendChild(input);
 			grid.appendChild(cell);
 		}
-		wrap.append(el('div', 'statline', label), grid);
+		wrap.append(el('div', 'statline',
+			key === 'evs' ? `${label} (max ${EV_MAX_PER_STAT} per stat, ${EV_LIMIT} total)` :
+			`${label} (0-31)`), grid);
 		if (key === 'evs') {
 			refreshTotal();
 			wrap.appendChild(total);
@@ -994,7 +1037,13 @@ const NATURES = {
 	Calm: ['spd', 'atk'], Gentle: ['spd', 'def'], Sassy: ['spd', 'spe'], Careful: ['spd', 'spa'],
 	Quirky: [],
 };
-const EV_LIMIT = 510;
+/**
+ * 252 per stat and 508 in total: 508 is what is actually spendable, since EVs
+ * only count in fours. The server's own limit is 510, so anything the builder
+ * accepts is always legal there too.
+ */
+const EV_LIMIT = 508;
+const EV_MAX_PER_STAT = 252;
 
 /** The stat a level, base stat, IV, EV and nature actually produce. */
 function finalStat(stat, base, ev, iv, level, nature) {

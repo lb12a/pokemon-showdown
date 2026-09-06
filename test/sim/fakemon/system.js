@@ -460,6 +460,29 @@ describe('Fakemon: sets and trapping', () => {
 		}
 	});
 
+	it('should accept a team of two Pokemon', () => {
+		// A team may hold anything from one to six; empty slots are simply not sent.
+		const first = sample();
+		const second = { ...sample(), species: 'Sprank', name: 'y', ability: 'cabinetlock' };
+		second.moves = Object.keys(dex.species.getLearnsetData('sprank').learnset).slice(0, 2);
+		assert.equal(validator().validateTeam([first, second]), null);
+		assert.equal(validator().validateTeam([first]), null, 'and a team of one');
+	});
+
+	it('should accept the 508 EVs the team builder allows', () => {
+		// The builder caps at 252 per stat and 508 in total; the server's own
+		// limit is 510, so anything the builder produces has to pass here.
+		const set = { ...sample(), evs: { hp: 4, atk: 252, def: 0, spa: 0, spd: 0, spe: 252 } };
+		assert.equal(validator().validateTeam([set]), null);
+	});
+
+	it('should accept any nature and any IV spread', () => {
+		for (const nature of ['Adamant', 'Modest', 'Serious', 'Quirky', 'Sassy']) {
+			const set = { ...sample(), nature, ivs: { hp: 31, atk: 31, def: 31, spa: 0, spd: 31, spe: 31 } };
+			assert.equal(validator().validateTeam([set]), null, `${nature} should be legal`);
+		}
+	});
+
 	it('should reject more than 510 EVs', () => {
 		const set = { ...sample(), evs: { hp: 252, atk: 252, def: 252, spa: 0, spd: 0, spe: 0 } };
 		assert(validator().validateTeam([set]), 'an over-limit spread should be rejected');
