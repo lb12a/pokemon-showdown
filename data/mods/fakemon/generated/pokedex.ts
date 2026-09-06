@@ -1525,7 +1525,7 @@ export const Pokedex: import('../../../../sim/dex-species').ModdedSpeciesDataTab
 		name: "Butterkeksel",
 		types: ["Fairy", "Fire"],
 		baseStats: { hp: 101, atk: 88, def: 109, spa: 132, spd: 42, spe: 48 },
-		abilities: { 0: 0: "Sugar Rush", 1: "Crumb Armor", H: "Gingerbread" },
+		abilities: { 0: "Sugar Rush", 1: "Crumb Armor", H: "Gingerbread" },
 		heightm: 1.4,
 		weightkg: 64.2,
 		color: "Green",
