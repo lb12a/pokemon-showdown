@@ -1,25 +1,45 @@
 /**
  * Fakemon items.
  *
- * Three groups:
+ * Five groups:
  *   1. MEGA STONES  - one per Mega forme in the dex PDF. Holding the right one
  *      turns Mega Evolution into the +100 BST forme change with its Mega
  *      Ability instead of the generic stoneless +20-to-everything (scripts.ts).
- *   2. FOOD ITEMS   - the dex PDF repeatedly refers to "food items" (Crispy
+ *   2. CORE FOOD ITEMS - the dex PDF repeatedly refers to "food items" (Crispy
  *      Charge, Sugar Rush, Nibble, Evergreen Cud, Itemfinder, Nectar Dash...)
- *      without listing any, so this set is defined here. `FOOD_ITEMS` is the
- *      single list every one of those abilities and moves checks against.
+ *      without listing any, so this starter set is defined here.
  *   3. UTILITY ITEMS - a small neutral set so team building has real choices.
+ *   4/5. The four item spreadsheets, split by file into their own modules:
+ *      items-food.ts        (Pokemon_Food_Items, 50)
+ *      items-consumables.ts (New_Unique_Consumable_Items, 50)
+ *      items-battle.ts      (Non_Food_Battle_Items, 50)
+ *      items-permanent.ts   (Final_Permanent_Held_Items, 50)
  *
  * Every item is flagged `isNonstandard: 'Custom'`, which is what scripts.ts
  * uses to tell custom items apart from the original Showdown ones it deletes.
  */
+import { FoodItems } from './items-food';
+import { ConsumableItems } from './items-consumables';
+import { BattleItems } from './items-battle';
+import { PermanentItems } from './items-permanent';
 
-/** Every food item in the custom game. Read by abilities.ts and moves-signature.ts. */
-export const FOOD_ITEMS = [
+/** The original hand-written food set from the dex PDF's "food item" mechanics. */
+const CORE_FOOD_ITEMS = [
 	'sugarberry', 'crispycrumb', 'honeydrop', 'spicywrap', 'frostcone',
 	'nectarvial', 'roastednut', 'jellycup', 'herbloaf', 'moonpetal',
-] as const;
+];
+
+/**
+ * Every food item in the custom game: the core set plus both edible
+ * spreadsheets. Read by abilities.ts, moves-signature.ts and the random team
+ * generator, so adding a row to items-food.ts is enough to make every food
+ * mechanic see it.
+ */
+export const FOOD_ITEMS: string[] = [
+	...CORE_FOOD_ITEMS,
+	...Object.keys(FoodItems),
+	...Object.keys(ConsumableItems),
+];
 
 export const Items: import('../../../sim/dex-items').ModdedItemDataTable = {
 	// ---------------------------------------------------------------
@@ -594,4 +614,12 @@ export const Items: import('../../../sim/dex-items').ModdedItemDataTable = {
 		gen: 9,
 		desc: "Raises Speed by 1 when the holder Mega Evolves (works without a stone).",
 	},
+
+	// ---------------------------------------------------------------
+	// 4. THE FOUR ITEM SPREADSHEETS
+	// ---------------------------------------------------------------
+	...FoodItems,
+	...ConsumableItems,
+	...BattleItems,
+	...PermanentItems,
 };

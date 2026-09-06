@@ -178,6 +178,29 @@ describe('Fakemon: Mega Evolution', () => {
 		assert.equal(pokemon.species.baseStats.atk, before.atk + 20);
 	});
 
+	it('should not use a Pokemon\'s own Mega forme without its Mega Stone', () => {
+		// Hallowisp has a Mega forme, but without Hallowispite it Mega Evolves
+		// like everybody else: +20 across the board, same species, same ability,
+		// same typing - it never reaches Hallowisp-Mega.
+		battle = fakemon.createBattle([[
+			{ species: 'Hallowisp', ability: 'grassstarter', moves: ['sugarcrush'] },
+		], [
+			{ species: 'Sprank', ability: 'cabinetlock', moves: ['furniturehaunt'] },
+		]]);
+		const pokemon = battle.p1.active[0];
+		const before = { ...pokemon.species.baseStats };
+		const types = pokemon.species.types.join('/');
+
+		battle.makeChoices('move 1 mega', 'move 1');
+
+		assert.equal(pokemon.species.name, 'Hallowisp', 'it must not become Hallowisp-Mega');
+		assert.equal(pokemon.ability, 'grassstarter', 'the Mega Ability must stay locked');
+		assert.equal(pokemon.species.types.join('/'), types, 'the typing must not change');
+		for (const stat of ['hp', 'atk', 'def', 'spa', 'spd', 'spe']) {
+			assert.equal(pokemon.species.baseStats[stat], before[stat] + 20, `${stat} should be +20`);
+		}
+	});
+
 	it('should only allow one Mega Evolution per side', () => {
 		battle = fakemon.createBattle([[
 			{ species: 'Pumpini', ability: 'grassstarter', moves: ['sugarcrush'] },
@@ -188,6 +211,178 @@ describe('Fakemon: Mega Evolution', () => {
 		]]);
 		battle.makeChoices('move 1 mega', 'move 1');
 		assert.false(!!battle.p1.pokemon[1].canMegaEvo, 'the rest of the team cannot Mega Evolve');
+	});
+});
+
+describe('Fakemon: the four item spreadsheets', () => {
+	before(() => dex.includeData());
+	beforeEach(() => {
+		battle = null;
+	});
+	afterEach(() => {
+		if (battle) battle.destroy();
+		battle = null;
+	});
+
+	it('should register all 200 new items as custom data', () => {
+		const groups = {
+			food: require('./../../../dist/data/mods/fakemon/items-food').FoodItems,
+			consumable: require('./../../../dist/data/mods/fakemon/items-consumables').ConsumableItems,
+			battle: require('./../../../dist/data/mods/fakemon/items-battle').BattleItems,
+			permanent: require('./../../../dist/data/mods/fakemon/items-permanent').PermanentItems,
+		};
+		let total = 0;
+		for (const [group, table] of Object.entries(groups)) {
+			assert.equal(Object.keys(table).length, 50, `${group} should hold 50 items`);
+			for (const id of Object.keys(table)) {
+				const item = dex.items.get(id);
+				assert(item.exists, `${id} should exist in the mod`);
+				assert.equal(item.isNonstandard, 'Custom', `${id} should be tagged as custom`);
+				total++;
+			}
+		}
+		assert.equal(total, 200);
+	});
+
+	it('should count every edible item as a food item', () => {
+		const { FOOD_ITEMS } = require('./../../../dist/data/mods/fakemon/items');
+		const food = require('./../../../dist/data/mods/fakemon/items-food').FoodItems;
+		const consumables = require('./../../../dist/data/mods/fakemon/items-consumables').ConsumableItems;
+		for (const id of [...Object.keys(food), ...Object.keys(consumables)]) {
+			assert(FOOD_ITEMS.includes(id), `${id} should count as a food item`);
+		}
+	});
+
+	it('should cure paralysis and raise Speed with the Volt-Spore Shroom', () => {
+		battle = fakemon.createBattle([[
+			{ species: 'Pumpini', ability: 'grassstarter', item: 'voltsporeshroom', moves: ['sugarcrush'] },
+		], [
+			{ species: 'Sprank', ability: 'cabinetlock', moves: ['gemstoneglare'] },
+		]]);
+		battle.makeChoices('move 1', 'move 1');
+		const pokemon = battle.p1.active[0];
+		assert.equal(pokemon.status, '', 'the paralysis should be cured');
+		assert.equal(pokemon.boosts.spe, 1, 'Speed should be raised by 1');
+		assert.equal(pokemon.item, '', 'the mushroom should be eaten');
+	});
+
+	it('should slow a contact attacker with the Sticky Honey-Comb', () => {
+		battle = fakemon.createBattle([[
+			{ species: 'Bytebug', ability: 'grassstarter', item: 'stickyhoneycomb', moves: ['sugarcrush'] },
+		], [
+			{ species: 'Sprank', ability: 'cabinetlock', moves: ['headbuttrush'] },
+		]]);
+		battle.makeChoices('move 1', 'move 1');
+		assert.equal(battle.p2.active[0].boosts.spe, -1);
+		assert.equal(battle.p1.active[0].item, 'stickyhoneycomb', 'it is not consumed');
+	});
+
+	it('should lock the holder out of status moves with the Assault Vestment', () => {
+		battle = fakemon.createBattle([[
+			{ species: 'Pumpini', ability: 'grassstarter', item: 'assaultvestment', moves: ['sugarcrush', 'normalguard'] },
+		], [
+			{ species: 'Sprank', ability: 'cabinetlock', moves: ['headbuttrush'] },
+		]]);
+		const request = battle.p1.activeRequest.active[0].moves;
+		assert(request[1].disabled, 'the status move should be unselectable');
+		assert.false(!!request[0].disabled, 'the attack should still be selectable');
+	});
+
+	it('should make the holder immune to burns with the Volcanic Sulfur Ore', () => {
+		battle = fakemon.createBattle([[
+			{ species: 'Pumpini', ability: 'grassstarter', item: 'volcanicsulfurore', moves: ['sugarcrush'] },
+		], [
+			{ species: 'Sprank', ability: 'cabinetlock', moves: ['headbuttrush'] },
+		]]);
+		const pokemon = battle.p1.active[0];
+		assert.false(pokemon.trySetStatus('brn', pokemon), 'the burn must be refused');
+		assert.equal(pokemon.status, '');
+	});
+
+	it('should stop forced switches with the Granite Anchor', () => {
+		battle = fakemon.createBattle([[
+			{ species: 'Pumpini', ability: 'grassstarter', item: 'graniteanchor', moves: ['sugarcrush'] },
+			{ species: 'Candigrim', ability: 'grassstarter', moves: ['sugarcrush'] },
+		], [
+			{ species: 'Sprank', ability: 'cabinetlock', moves: ['warriorsroar'] },
+		]]);
+		battle.makeChoices('move 1', 'move 1');
+		assert.equal(battle.p1.active[0].species.name, 'Pumpini', 'the holder should stay in');
+	});
+
+	it('should hurt contact attackers with the Splinter-Bark Husk', () => {
+		battle = fakemon.createBattle([[
+			{ species: 'Bytebug', ability: 'grassstarter', item: 'splinterbarkhusk', moves: ['sugarcrush'] },
+		], [
+			{ species: 'Sprank', ability: 'cabinetlock', moves: ['headbuttrush'] },
+		]]);
+		battle.makeChoices('move 1', 'move 1');
+		const attacker = battle.p2.active[0];
+		assert(attacker.hp < attacker.maxhp, 'the attacker should take recoil from the husk');
+	});
+
+	it('should offer every item to the team builder as custom data only', () => {
+		for (const id of Object.keys(dex.data.Items)) {
+			assert.equal(dex.data.Items[id].isNonstandard, 'Custom',
+				`${id} leaked in from the original game`);
+		}
+		assert.equal(Object.keys(dex.data.Items).length, 240);
+	});
+});
+
+describe('Fakemon: move wiring', () => {
+	before(() => dex.includeData());
+	beforeEach(() => {
+		battle = null;
+	});
+	afterEach(() => {
+		if (battle) battle.destroy();
+		battle = null;
+	});
+
+	it('should keep the internal helper moves the signature moves need', () => {
+		for (const id of ['needlejabready', 'barbedcounterhit']) {
+			assert(dex.moves.get(id).exists, `${id} must survive the data separation`);
+		}
+		// Needle Jab's counter is attached as a volatile, so it has to resolve
+		// as a condition too.
+		assert(dex.conditions.get('needlejabready').exists);
+	});
+
+	it('should point every force-switch move at the opponent', () => {
+		for (const [id, move] of Object.entries(dex.data.Moves)) {
+			if (!move.forceSwitch) continue;
+			assert(['normal', 'any', 'adjacentFoe', 'allAdjacentFoes'].includes(move.target),
+				`${id} forces a switch but targets ${move.target}`);
+		}
+	});
+
+	it('should make every onHitField move field-wide', () => {
+		for (const [id, move] of Object.entries(dex.data.Moves)) {
+			if (!move.onHitField) continue;
+			assert.equal(move.target, 'all', `${id} uses onHitField but targets ${move.target}`);
+		}
+	});
+
+	it('should never put onAfterHit on a status move', () => {
+		// onAfterHit only runs for moves that dealt damage, so it is dead code there.
+		for (const [id, move] of Object.entries(dex.data.Moves)) {
+			if (move.category !== 'Status') continue;
+			assert.false(!!move.onAfterHit, `${id} is a status move with a dead onAfterHit`);
+		}
+	});
+
+	it('should force a switch on the opponent, not on the user', () => {
+		battle = fakemon.createBattle([[
+			{ species: 'Pumpini', ability: 'grassstarter', moves: ['warriorsroar'] },
+			{ species: 'Candigrim', ability: 'grassstarter', moves: ['sugarcrush'] },
+		], [
+			{ species: 'Sprank', ability: 'cabinetlock', moves: ['headbuttrush'] },
+			{ species: 'Spukasten', ability: 'cabinetlock', moves: ['headbuttrush'] },
+		]]);
+		battle.makeChoices('move 1', 'move 1');
+		assert.equal(battle.p1.active[0].species.name, 'Pumpini', 'the user must stay in');
+		assert.equal(battle.p2.active[0].species.name, 'Spukasten', 'the opponent must be switched out');
 	});
 });
 

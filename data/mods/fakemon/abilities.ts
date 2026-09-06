@@ -2539,7 +2539,6 @@ export const Abilities: import('../../../sim/dex-abilities').ModdedAbilityDataTa
 		name: "Survivalist",
 		shortDesc: "Boosts its two highest stats by 1 whenever it loses its held item.",
 		onAfterUseItem(item, pokemon) {
-			this.effectState.boostOnItemLoss?.call?.(null);
 			survivalistBoost(this, pokemon);
 		},
 		onTakeItem(item, pokemon) {

@@ -510,6 +510,7 @@ def r_no_weather(sp, m):
 @rule(r'(?:Eliminates|Breaks|Removes) all [Tt]errains')
 def r_clear_terrain(sp, m):
     sp.set('onHitField', "(target, source) => { source.battle.field.clearTerrain(); }")
+    sp.set('target', "'all'")
 
 
 @rule(r'Breaks Terrains and Room effects')
@@ -670,8 +671,9 @@ def r_pain_split(sp, m):
                     "Math.min(target.maxhp, averagehp));\n"
                     "\t\ttarget.sethp(targetHP);\n"
                     "\t\tsource.sethp(Math.min(source.maxhp, averagehp));\n"
-                    "\t\tsource.battle.add('-sethp', target, target.getHealth, source, "
-                    "source.getHealth, '[from] move: ' + source.battle.effect.name);\n"
+                    "\t\tconst why = '[from] move: ' + source.battle.effect.name;\n"
+                    "\t\tsource.battle.add('-sethp', target, target.getHealth, why, '[silent]');\n"
+                    "\t\tsource.battle.add('-sethp', source, source.getHealth, why);\n"
                     "\t}")
 
 
@@ -1688,6 +1690,274 @@ def r_type_ward(sp, m):
 # ---------------------------------------------------------------------------
 # Compilation entry point
 # ---------------------------------------------------------------------------
+
+# ==========================================================================
+# Second-clause rules.
+#
+# `tools/fakemon/check.js` measures how much of each effect text the rules
+# above actually cover. Everything below closes a gap that measurement found:
+# a sentence whose first half compiled and whose second half used to be
+# dropped, which shipped a move that only did part of what it says.
+# ==========================================================================
+
+
+@rule(r'damages non-([A-Z][a-z]+)[- ]types? for 1/(\d+) HP upon entry')
+def r_field_entry_chip(sp, m):
+    typ, denom = m.group(1), m.group(2)
+    sp.set('onHitField', "(target, source) => {\n"
+                         "\t\tfor (const pokemon of source.battle.getAllActive()) {\n"
+                         f"\t\t\tif (!pokemon.hasType('{typ}')) {{\n"
+                         f"\t\t\t\tsource.battle.damage(pokemon.baseMaxhp / {denom}, pokemon, source);\n"
+                         "\t\t\t}\n"
+                         "\t\t}\n"
+                         "\t}")
+    sp.set('target', "'all'")
+
+
+@rule(r'changes? type to pure ([A-Z][a-z]+)|changes? (?:the )?user to ([A-Z][a-z]+)[- ]type')
+def r_self_type_change(sp, m):
+    typ = m.group(1) or m.group(2)
+    sp.set('onHit', "(target, source) => {\n"
+                    f"\t\tif (source.setType('{typ}')) {{\n"
+                    f"\t\t\tsource.battle.add('-start', source, 'typechange', '{typ}');\n"
+                    "\t\t}\n"
+                    "\t}")
+
+
+@rule(r'[Cc]hanges? terrain to a random one')
+def r_random_terrain(sp, m):
+    sp.set('onHit', "(target, source) => {\n"
+                    "\t\tconst terrains = ['electricterrain', 'grassyterrain', "
+                    "'mistyterrain', 'psychicterrain'];\n"
+                    "\t\tsource.battle.field.setTerrain(source.battle.sample(terrains), source);\n"
+                    "\t}")
+
+
+@rule(r'[Ss]uper effective (?:against|on) ([A-Z][a-z]+)')
+def r_super_effective_vs(sp, m):
+    typ = m.group(1)
+    sp.set('onEffectiveness', "(typeMod, target, type) => {\n"
+                              f"\t\tif (type === '{typ}') return 1;\n"
+                              "\t}")
+
+
+@rule(r'hits ([A-Z][a-z]+) types for neutral damage')
+def r_neutral_vs(sp, m):
+    typ = m.group(1)
+    sp.set('onEffectiveness', "(typeMod, target, type) => {\n"
+                              f"\t\tif (type === '{typ}') return 0;\n"
+                              "\t}")
+    sp.set('ignoreImmunity', "{ '" + sp.move['type'] + "': true }")
+
+
+@rule(r"[Ii]gnores (?:the )?(?:target'?s? )?(?:Defense|Def|Sp\.? ?Def|Special Defense) boosts")
+def r_ignore_defensive(sp, m):
+    sp.set('ignoreDefensive', 'true')
+
+
+@rule(r'paraly[sz]es all grounded targets')
+def r_paralyze_grounded(sp, m):
+    sp.set('onHitField', "(target, source) => {\n"
+                         "\t\tsource.battle.field.clearTerrain();\n"
+                         "\t\tfor (const pokemon of source.battle.getAllActive()) {\n"
+                         "\t\t\tif (pokemon !== source && pokemon.isGrounded()) {\n"
+                         "\t\t\t\tpokemon.trySetStatus('par', source);\n"
+                         "\t\t\t}\n"
+                         "\t\t}\n"
+                         "\t}")
+    sp.set('target', "'all'")
+
+
+@rule(r"(?:user'?s? )?stats? drops? by (\d+) across the board")
+def r_all_stats_drop(sp, m):
+    amount = -int(m.group(1))
+    for stat in ('atk', 'def', 'spa', 'spd', 'spe'):
+        sp.self_boosts[stat] = amount
+
+
+@rule(r'heals? (\d+)% if target is poisoned')
+def r_drain_vs_poisoned(sp, m):
+    pct = int(m.group(1))
+    sp.set('onModifyMove', "(move, source, target) => {\n"
+                           f"\t\tif (target && ['psn', 'tox'].includes(target.status)) "
+                           f"move.drain = [{pct}, 100];\n"
+                           "\t}")
+
+
+@rule(r"steals? (?:the )?target'?s? positive stat boosts")
+def r_steal_positive_boosts(sp, m):
+    sp.set('onHit', "(target, source) => {\n"
+                    "\t\tconst stolen: SparseBoostsTable = {};\n"
+                    "\t\tlet stat: BoostID;\n"
+                    "\t\tfor (stat in target.boosts) {\n"
+                    "\t\t\tif (target.boosts[stat] > 0) {\n"
+                    "\t\t\t\tstolen[stat] = target.boosts[stat];\n"
+                    "\t\t\t\ttarget.boosts[stat] = 0;\n"
+                    "\t\t\t}\n"
+                    "\t\t}\n"
+                    "\t\tif (Object.keys(stolen).length) {\n"
+                    "\t\t\tsource.battle.add('-clearpositiveboost', target, source, 'move');\n"
+                    "\t\t\tsource.battle.boost(stolen, source, source);\n"
+                    "\t\t}\n"
+                    "\t}")
+
+
+@rule(r'removes? ([A-Z][a-z]+)[- ]type from (?:the )?target')
+def r_remove_type(sp, m):
+    typ = m.group(1)
+    sp.set('onHit', "(target, source) => {\n"
+                    f"\t\tconst types = target.getTypes().filter(t => t !== '{typ}');\n"
+                    "\t\tif (!types.length) types.push('Normal');\n"
+                    "\t\tif (target.setType(types)) {\n"
+                    "\t\t\tsource.battle.add('-start', target, 'typechange', types.join('/'));\n"
+                    "\t\t}\n"
+                    "\t}")
+
+
+@rule(r'heals status condition')
+def r_cure_own_status(sp, m):
+    sp.set('onHit', "(target, source) => { source.cureStatus(); }")
+
+
+@rule(r'removes Poison/Bleed effects from itself')
+def r_cure_poison_and_bleed(sp, m):
+    sp.set('onHit', "(target, source) => {\n"
+                    "\t\tif (source.status === 'psn' || source.status === 'tox') source.cureStatus();\n"
+                    "\t\tsource.removeVolatile('fakemonbleed');\n"
+                    "\t}")
+
+
+@rule(r"(?:user'?s? )?next attack has \+1 priority")
+def r_next_move_priority(sp, m):
+    sp.set('onHit', "(target, source) => { source.addVolatile('fakemonpriority1'); }")
+
+
+@rule(r'freezes user for \d+ turns? instead of sleep')
+def r_self_freeze(sp, m):
+    sp.set('onHit', "(target, source) => { source.setStatus('frz', source); }")
+
+
+@rule(r'user takes double damage from ([A-Z][a-z]+) this turn')
+def r_self_type_weakness(sp, m):
+    typ = m.group(1)
+    sp.set('onHit', "(target, source) => {\n"
+                    "\t\tsource.addVolatile('fakemonexposed');\n"
+                    "\t\tconst state = source.volatiles['fakemonexposed'];\n"
+                    f"\t\tif (state) state.weakType = '{typ}';\n"
+                    "\t}")
+
+
+@rule(r"[Ll]owers target'?s? (" + STAT_RE + r") by (\d+) every turn they remain in battle")
+def r_recurring_stat_drop(sp, m):
+    stat, amount = _stat(m.group(1)), int(m.group(2))
+    sp.secondaries.clear()
+    sp.set('onHit', "(target, source) => {\n"
+                    "\t\ttarget.addVolatile('fakemonwither', source);\n"
+                    "\t\tconst state = target.volatiles['fakemonwither'];\n"
+                    f"\t\tif (state) {{ state.stat = '{stat}'; state.amount = {amount}; }}\n"
+                    "\t}")
+
+
+@rule(r'[Tt]arget heals (\d+)% HP, but takes (\d+)% damage over next (\d+) turns')
+def r_false_promise(sp, m):
+    heal, total, turns = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    sp.fields.pop('heal', None)
+    sp.set('onHit', "(target, source) => {\n"
+                    f"\t\tsource.battle.heal(target.baseMaxhp * {heal} / 100, target, source);\n"
+                    "\t\ttarget.addVolatile('fakemondelayeddamage', source);\n"
+                    "\t\tconst state = target.volatiles['fakemondelayeddamage'];\n"
+                    f"\t\tif (state) {{ state.fraction = {total} / 100 / {turns}; state.duration = {turns + 1}; }}\n"
+                    "\t}")
+
+
+@rule(r'([A-Z][a-z]+)-type allies restore 1/(\d+) HP per turn')
+def r_ally_type_regen(sp, m):
+    typ, denom = m.group(1), m.group(2)
+    sp.set('onAfterHit', "(target, source) => {\n"
+                         "\t\tsource.side.addSideCondition('fakemontyperegen', source);\n"
+                         "\t\tconst state = source.side.sideConditions['fakemontyperegen'];\n"
+                         f"\t\tif (state) {{ state.regenType = '{typ}'; state.fraction = 1 / {denom}; }}\n"
+                         "\t}")
+
+
+@rule(r'target is afflicted with Curse and Confusion')
+def r_curse_and_confuse(sp, m):
+    sp.set('onHit', "(target, source) => {\n"
+                    "\t\ttarget.addVolatile('curse', source);\n"
+                    "\t\ttarget.addVolatile('confusion', source);\n"
+                    "\t}")
+
+
+@rule(r'[Mm]ust recharge next turn unless ([A-Z][a-z]+) Terrain is active')
+def r_recharge_unless_terrain(sp, m):
+    terrain = m.group(1).lower() + 'terrain'
+    sp.set('onModifyMove', "(move, source) => {\n"
+                           f"\t\tif (source.battle.field.isTerrain('{terrain}')) move.self = undefined;\n"
+                           "\t}")
+
+
+@rule(r'neither user nor target can use Status moves')
+def r_mutual_status_lock(sp, m):
+    sp.set('onHit', "(target, source) => {\n"
+                    "\t\ttarget.addVolatile('fakemonstatuslock', source);\n"
+                    "\t\tsource.addVolatile('fakemonstatuslock', source);\n"
+                    "\t}")
+
+
+@rule(r'[Pp]rotects from attacks, damages contact attackers by 1/(\d+)')
+def r_spiky_protect(sp, m):
+    # Spiky Shield already is "protect that hurts contact attackers for 1/8".
+    sp.set('volatileStatus', "'spikyshield'")
+
+
+@rule(r'reflects status moves back to attacker')
+def r_reflecting_protect(sp, m):
+    sp.set('onHit', "(pokemon) => {\n"
+                    "\t\tpokemon.addVolatile('stall');\n"
+                    "\t\tpokemon.addVolatile('magiccoat');\n"
+                    "\t}")
+
+
+@rule(r'[Pp]rotects from physical moves, takes 1/(\d+) damage from special moves')
+def r_physical_only_protect(sp, m):
+    sp.set('volatileStatus', "'fakemonaeroshield'")
+
+
+@rule(r'Hazard: Grounded incoming Pok\S*mon take (\d+)% recoil on their first attack '
+      r'and lose (\d+) Speed')
+def r_ice_slick_hazard(sp, m):
+    sp.set('sideCondition', "'fakemoniceslick'")
+
+
+@rule(r'entry hazards on target\'?s side')
+def r_knock_off_and_hazards(sp, m):
+    sp.set('onAfterHit', "(target, source) => {\n"
+                         "\t\tif (source.hp && target.hp && target.item && !target.itemState.knockedOff) {\n"
+                         "\t\t\tconst item = target.takeItem();\n"
+                         "\t\t\tif (item) {\n"
+                         "\t\t\t\ttarget.itemState.knockedOff = true;\n"
+                         "\t\t\t\tsource.battle.add('-enditem', target, item.name, "
+                         "'[from] move: ' + source.battle.effect.name);\n"
+                         "\t\t\t}\n"
+                         "\t\t}\n"
+                         "\t\tfor (const id of ['spikes', 'toxicspikes', 'stealthrock', 'stickyweb', "
+                         "'livewire', 'fakemonbleedhazard', 'fakemoniceslick']) {\n"
+                         "\t\t\tif (target.side.removeSideCondition(id)) {\n"
+                         "\t\t\t\tsource.battle.add('-sideend', target.side, "
+                         "source.battle.dex.conditions.get(id).name, "
+                         "'[from] move: ' + source.battle.effect.name);\n"
+                         "\t\t\t}\n"
+                         "\t\t}\n"
+                         "\t}")
+
+
+@rule(r"controls target'?s? move choice next turn")
+def r_control_next_move(sp, m):
+    # The engine has no "pick the foe's move" primitive; locking the target into
+    # what it just used is the closest real mechanic.
+    sp.set('volatileStatus', "'encore'")
+
+
 def compile_effect(move, effect):
     """Return a Spec with every rule that matched `effect` applied."""
     sp = Spec(move)

@@ -25,6 +25,17 @@ const warnings = [];
 const error = msg => errors.push(msg);
 const warn = msg => warnings.push(msg);
 
+/** The item tables, so the report can break the item count down by source file. */
+const ITEM_GROUPS = [
+	['food items (Pokemon_Food_Items)', require('../../dist/data/mods/fakemon/items-food').FoodItems],
+	['consumables (New_Unique_Consumable_Items)',
+		require('../../dist/data/mods/fakemon/items-consumables').ConsumableItems],
+	['battle items (Non_Food_Battle_Items)',
+		require('../../dist/data/mods/fakemon/items-battle').BattleItems],
+	['permanent held items (Final_Permanent_Held_Items)',
+		require('../../dist/data/mods/fakemon/items-permanent').PermanentItems],
+];
+
 /**
  * Items whose effect is implemented in another effect's callback rather than in
  * their own handlers - the same shape as Light Clay upstream. Each entry names
@@ -238,6 +249,9 @@ function main() {
 	console.log(`  ${customMoveIds.size} Moves (${Object.keys(index.signatureMoves).length} signature)`);
 	console.log(`  ${Object.keys(index.abilities).length} Abilities + ${Object.keys(index.megaAbilities).length} Mega Abilities`);
 	console.log(`  ${itemIds.size} Items`);
+	for (const [group, table] of ITEM_GROUPS) {
+		console.log(`    ${Object.keys(table).length} ${group}`);
+	}
 	console.log(`  ${megaCount} Mega Stones`);
 	console.log('');
 	console.log(`WARNINGS: ${warnings.length}`);

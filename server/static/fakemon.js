@@ -597,10 +597,21 @@ const UI = {
 		const wrap = el('label', null, label);
 		const select = el('select');
 		select.appendChild(el('option', null, '—'));
+		const groups = {};
 		for (const option of options) {
-			const [val, text] = Array.isArray(option) ? option : [option, option];
+			const [val, text, group] = Array.isArray(option) ? option : [option, option];
 			const node = el('option', null, text);
 			node.value = val;
+			// A group turns the flat list into <optgroup> sections.
+			if (group) {
+				if (!groups[group]) {
+					groups[group] = el('optgroup');
+					groups[group].label = group;
+					select.appendChild(groups[group]);
+				}
+				groups[group].appendChild(node);
+				continue;
+			}
 			select.appendChild(node);
 		}
 		select.value = value || '';
@@ -665,12 +676,21 @@ function speciesOptions() {
 		.map(species => [species.name, `${species.name} (${species.types.join('/')})`])
 		.sort((a, b) => a[0].localeCompare(b[0]));
 }
+const ITEM_GROUP_ORDER = ['Mega Stone', 'Core', 'Food', 'Consumable', 'Battle gear', 'Permanent gear'];
+
 function itemOptions(species) {
 	return Object.values(D.items)
 		// A Mega Stone is only offered to the Pokemon it belongs to.
 		.filter(item => !item.megaStone || item.megaStone[species.name])
-		.map(item => [item.name, item.megaStone ? `${item.name} (Mega Stone)` : item.name])
-		.sort((a, b) => a[0].localeCompare(b[0]));
+		.map(item => [
+			item.name,
+			item.megaStone ? `${item.name} (Mega Stone)` : `${item.name} — ${item.desc}`,
+			item.group || 'Core',
+		])
+		.sort((a, b) => {
+			const order = ITEM_GROUP_ORDER.indexOf(a[2]) - ITEM_GROUP_ORDER.indexOf(b[2]);
+			return order || a[0].localeCompare(b[0]);
+		});
 }
 
 // =====================================================================

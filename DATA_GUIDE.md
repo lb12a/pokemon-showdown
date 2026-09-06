@@ -160,7 +160,19 @@ Useful hooks: `onStart`, `onSwitchIn`, `onModifyAtk/SpA/Def/SpD/Spe`,
 
 ## Adding an item
 
-`data/mods/fakemon/items.ts`. **Every item needs `isNonstandard: 'Custom'`** —
+The item pool is split by source file so each spreadsheet can be re-imported on
+its own:
+
+| file | what belongs in it |
+| --- | --- |
+| `items.ts` | Mega Stones, the core food set, utility items — and the index that merges everything |
+| `items-food.ts` | held foods (`Pokemon_Food_Items`) |
+| `items-consumables.ts` | one-shot consumables (`New_Unique_Consumable_Items`) |
+| `items-battle.ts` | battle gear (`Non_Food_Battle_Items`) |
+| `items-permanent.ts` | permanent held gear (`Final_Permanent_Held_Items`) |
+
+Add the entry to whichever file fits; `items.ts` spreads all five tables, so
+nothing else has to be touched. **Every item needs `isNonstandard: 'Custom'`** —
 that flag is how the mod tells custom items from the original ones it deletes.
 
 ```ts
@@ -179,9 +191,22 @@ that flag is how the mod tells custom items from the original ones it deletes.
 ```
 
 To make it a **food item** (so Sugar Rush, Crispy Charge, Nibble, Evergreen Cud,
-Itemfinder and Nectar Dash all recognise it), add its ID to the `FOOD_ITEMS`
-array at the top of the same file. That array is the single list every one of
-those effects checks.
+Itemfinder and Nectar Dash all recognise it), put it in `items-food.ts` or
+`items-consumables.ts` — `FOOD_ITEMS` in `items.ts` is built from those two
+tables automatically, so nothing else is needed. For a food item that lives
+somewhere else, add its ID to `CORE_FOOD_ITEMS` instead.
+
+If your item text mentions a family of moves ("rolling", "cutting", "kicking",
+"pulse", "weight-based"), use the helpers in `item-helpers.ts` rather than
+writing a new name test — that is the single place those families are defined,
+so every item that mentions the same concept keeps behaving the same way.
+`extendEffect(state, turns, tag)` there is the "make this weather/terrain/Room
+last N turns longer, once" helper.
+
+The team builder groups its item picker by source file. The grouping is written
+into the client bundle by `tools/fakemon/export-client.js` (`itemGroup`), so a
+new file needs one line added to its `ITEM_GROUPS` table and one to
+`ITEM_GROUP_ORDER` in `server/static/fakemon.js`.
 
 ## Adding a Mega Stone
 
@@ -281,11 +306,32 @@ into real move fields. If the importer meets wording it does not understand, it
 says so instead of shipping an inert move — add a rule there, or implement the
 move by hand in `moves-signature.ts`.
 
+`build.py` reports two different kinds of gap, and both should be empty:
+
+```
+UNCOMPILED EFFECTS: [...]          no rule matched this move's text at all
+PARTIALLY COMPILED EFFECTS:        a rule matched, but part of the sentence
+  - Grid Overload: paralyzes grounded targets       was silently dropped
+```
+
+The second one is the dangerous kind: the move exists, looks implemented and
+does only half of what it says. If a leftover phrase is genuinely redundant
+(a parenthetical repeating what another rule already emitted), add the move to
+`COVERAGE_ALLOWLIST` in `build.py` **with the reason**, rather than ignoring it.
+
+`build.py` also decides a move's **target**. The generic rule is "a Status move
+that does not boost anybody else targets itself", which is right for buffs and
+shields and wrong for anything whose text reaches the opponent — a move that
+targets itself by mistake resolves against its own user and quietly does
+nothing. `resolve_target()` handles the structural cases (`forceSwitch` must
+target a foe, `onHitField` must be field-wide, a pure weather/terrain/Room move
+is `'all'`); for anything else, add the move to `TARGET_FIXUPS`.
+
 ## Replacing the placeholder images
 
 See `assets/README.md`. Short version: drop a PNG named after the entry's ID
 into the right folder (`assets/pokemon/hallowisp.png`) and it is picked up
-automatically. `assets/manifest.json` lists all 733 expected paths, and
+automatically. `assets/manifest.json` lists all 1686 expected paths, and
 `data/mods/fakemon/assets.ts` is the only file that knows where images live.
 
 ## Updating the Teambuilder

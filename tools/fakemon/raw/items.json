@@ -1,0 +1,1010 @@
+{
+ "food": [
+  {
+   "name": "Volt-Spore Shroom",
+   "category": "Mushrooms",
+   "desc": "A crackling mushroom. If the holder is Paralyzed, it consumes the mushroom to cure the paralysis and slightly sharpens reflexes."
+  },
+  {
+   "name": "Cinder-Cap Shroom",
+   "category": "Mushrooms",
+   "desc": "A cool, damp mushroom that grows near volcanic areas. If the holder is Burned, it absorbs the heat to cure the burn."
+  },
+  {
+   "name": "Awake-Stalk Shroom",
+   "category": "Mushrooms",
+   "desc": "A highly aromatic mushroom with a pungent scent. It instantly wakes up a sleeping holder upon falling asleep."
+  },
+  {
+   "name": "Thaw-Root Shroom",
+   "category": "Mushrooms",
+   "desc": "A glowing, warm mushroom. If the holder becomes Frozen, it radiates intense heat to melt the ice and cure the status."
+  },
+  {
+   "name": "Antidote-Grip Shroom",
+   "category": "Mushrooms",
+   "desc": "A vibrant purple mushroom that neutralizes toxins. If the holder is Poisoned or Badly Poisoned, it cures the condition."
+  },
+  {
+   "name": "Dewdrop Shroom",
+   "category": "Mushrooms",
+   "desc": "A plump mushroom filled with clean water. Restores 25% of the holder's maximum HP when their HP falls below 50%."
+  },
+  {
+   "name": "Clear-Mind Shroom",
+   "category": "Mushrooms",
+   "desc": "A serene, glowing blue mushroom. Instantly cures Confusion or Infatuation when the holder is afflicted."
+  },
+  {
+   "name": "Rage-Gill Shroom",
+   "category": "Mushrooms",
+   "desc": "A crimson mushroom that induces adrenaline. Raises the holder's Attack stat by 1 stage in a pinch (below 50% HP)."
+  },
+  {
+   "name": "Iron-Shell Shroom",
+   "category": "Mushrooms",
+   "desc": "A rock-hard, gray mushroom. Raises the holder's Defense stat by 1 stage in a pinch (below 50% HP)."
+  },
+  {
+   "name": "Focus-Bulb Shroom",
+   "category": "Mushrooms",
+   "desc": "A mushroom that sharpens mental clarity. Raises the holder's Sp. Atk stat by 1 stage in a pinch (below 50% HP)."
+  },
+  {
+   "name": "Spiritual-Cap Shroom",
+   "category": "Mushrooms",
+   "desc": "A deeply rooted, mystical mushroom. Raises the holder's Sp. Def stat by 1 stage in a pinch (below 50% HP)."
+  },
+  {
+   "name": "Swift-Sprout Shroom",
+   "category": "Mushrooms",
+   "desc": "A light, aerodynamic mushroom. Raises the holder's Speed stat by 1 stage in a pinch (below 50% HP)."
+  },
+  {
+   "name": "Aquatic Spongeshroom",
+   "category": "Mushrooms",
+   "desc": "A very watery, juicy mushroom. It has no direct effect, but its intense moisture boosts the holder's Water-type moves by 10%."
+  },
+  {
+   "name": "Solar-Photos Shroom",
+   "category": "Mushrooms",
+   "desc": "A sun-loving mushroom. It has no standard effect, but under Sunlight weather, it restores 1/16 max HP at the end of every turn."
+  },
+  {
+   "name": "Arid Crunchshroom",
+   "category": "Mushrooms",
+   "desc": "A completely dry, powder-filled mushroom. It has no effect, but makes the holder immune to damage from Sandstorms or clear weather hazards."
+  },
+  {
+   "name": "Hard-Crust Roll",
+   "category": "Bakery & Grains",
+   "desc": "A very dense, baked roll. Reduces the damage taken from the first physical contact move by 30%."
+  },
+  {
+   "name": "Spicy Fluff-Pastry",
+   "category": "Bakery & Grains",
+   "desc": "A pastry baked with hot spices. If hit by an Ice-type move, it consumes the item to halve the damage taken."
+  },
+  {
+   "name": "Salty Pretzel",
+   "category": "Bakery & Grains",
+   "desc": "A heavily salted snack. Prevents the holder's stats from being lowered by intimidation or enemy moves once."
+  },
+  {
+   "name": "Sweet Honey-Bun",
+   "category": "Bakery & Grains",
+   "desc": "A sticky, delicious bun. Absorbs entry hazards; cures Sticky Web or lowers damage from Stealth Rock upon switching in."
+  },
+  {
+   "name": "Bitter Bran-Biscuit",
+   "category": "Bakery & Grains",
+   "desc": "A rough, healthy biscuit. If the holder is forced to flinch, it consumes the item to boost Speed by 1 stage."
+  },
+  {
+   "name": "Cracked Wheat-Loaf",
+   "category": "Bakery & Grains",
+   "desc": "A simple bread loaf. Restores a flat 40 HP when the holder's HP drops below half. Great for early-game or low-HP Pokémon."
+  },
+  {
+   "name": "Sugar-Powdered Donut",
+   "category": "Bakery & Grains",
+   "desc": "A sugary treat. Boosts the power of the holder's next multi-strike move (like DDOS Swarm or Payload Pouch) by 20%."
+  },
+  {
+   "name": "Garlic Flatbread",
+   "category": "Bakery & Grains",
+   "desc": "A strong-smelling bread. Biting moves used against the holder deal 25% less damage."
+  },
+  {
+   "name": "Moon-Dusted Croissant",
+   "category": "Bakery & Grains",
+   "desc": "A crescent-shaped pastry. Prolongs the Full Moon weather condition by 2 extra turns if held when weather is set."
+  },
+  {
+   "name": "Eleroll Cracker",
+   "category": "Bakery & Grains",
+   "desc": "A crispy snack loved by electric rodents. Perfect for Elerolltörnchen; boosts rotation/rolling moves by 15%."
+  },
+  {
+   "name": "Sour Zest-Peel",
+   "category": "Fruits & Vegetables",
+   "desc": "A bitter citrus rind. Synergizes with Sour Peel; shifts stat changes slightly to minimize defensive loss."
+  },
+  {
+   "name": "Shock-Charged Berry",
+   "category": "Fruits & Vegetables",
+   "desc": "A fruit glowing with static electricity. Extends the duration of Electric Terrain by 2 turns when used by the holder."
+  },
+  {
+   "name": "Bog-Root Carrot",
+   "category": "Fruits & Vegetables",
+   "desc": "A muddy, heavy vegetable. Boosts the damage of Ground-type moves used under Rain by 15% (synergizes with Mud Rush)."
+  },
+  {
+   "name": "Snap-PePea Pods",
+   "category": "Fruits & Vegetables",
+   "desc": "Crisp green pods. Increases the accuracy of the holder's next move by 20% if they missed on the previous turn."
+  },
+  {
+   "name": "Ghost-Pepper Chili",
+   "category": "Fruits & Vegetables",
+   "desc": "An insanely hot pepper. Grants Ghost-type Pokémon (like Hallowisp or Spukasten) a 10% boost to Sp. Atk, but hurts non-ghosts."
+  },
+  {
+   "name": "Heavy Iron-Pumpkin",
+   "category": "Fruits & Vegetables",
+   "desc": "A metallic, weighted pumpkin. Great for weight-based moves like Crustal Ram or Stem Drop; increases holder's weight tier."
+  },
+  {
+   "name": "Miracle Bloom-Bud",
+   "category": "Fruits & Vegetables",
+   "desc": "A tightly closed flower bud. Restores 15% HP when a Grass-type field or terrain is activated."
+  },
+  {
+   "name": "Glossy Wax-Apple",
+   "category": "Fruits & Vegetables",
+   "desc": "A shiny, smooth apple. Extends the duration of defensive barriers like Reflect or Brick Shelter by 1 turn."
+  },
+  {
+   "name": "Aqua-Maki Melon",
+   "category": "Fruits & Vegetables",
+   "desc": "A refreshing aquatic fruit. Restores 20% HP if the holder changes its typing during battle."
+  },
+  {
+   "name": "Crystalline Radish",
+   "category": "Fruits & Vegetables",
+   "desc": "A clear, frosty root vegetable. Halves damage taken from a super-effective Rock- or Steel-type move once."
+  },
+  {
+   "name": "Mahogany Acorn",
+   "category": "Nuts, Proteins & Deli",
+   "desc": "A tough nut with a psychic sheen. Boosts the holder's Defense by 1 stage if hit by a Psychic-type move."
+  },
+  {
+   "name": "Crispy Cricket-Snack",
+   "category": "Nuts, Proteins & Deli",
+   "desc": "A crunchy, protein-rich dried insect. Bug-type users gain +1 Priority on their first status move in battle."
+  },
+  {
+   "name": "Smoked Tallow-Jerky",
+   "category": "Nuts, Proteins & Deli",
+   "desc": "A tough piece of dried meat. Prevents the holder from being brought down to 0 HP by a single hit from full health (Halves HP instead, like Brick Core)."
+  },
+  {
+   "name": "Briny Kelp-Wrap",
+   "category": "Nuts, Proteins & Deli",
+   "desc": "Salty seaweed sheets. Heals 1/8 max HP if the user switches out via a move (like Zesty Somersault or Wadrobe Change)."
+  },
+  {
+   "name": "Sticky Honey-Comb",
+   "category": "Nuts, Proteins & Deli",
+   "desc": "Thick, unrefined honey. Contact attacks against the holder reduce the attacker's Speed stat by 1 stage."
+  },
+  {
+   "name": "Roasted Chestnut",
+   "category": "Nuts, Proteins & Deli",
+   "desc": "A warm, comforting nut. Reduces recoil damage taken from the user's own moves by 50% once (Great for Payload Pouch)."
+  },
+  {
+   "name": "Feather-Light Seedmix",
+   "category": "Nuts, Proteins & Deli",
+   "desc": "A blend of airy seeds. Increases the holder's Speed by 10%, but reduces their weight tier by one."
+  },
+  {
+   "name": "Hard Shell-Walnut",
+   "category": "Nuts, Proteins & Deli",
+   "desc": "A nut with a shell like stone. If the holder uses a protecting move, it raises Sp. Def by 1 stage instead of consuming immediately."
+  },
+  {
+   "name": "Purifying Serpent-Egg",
+   "category": "Nuts, Proteins & Deli",
+   "desc": "A rare, clear egg delicacy. Neutralizes all active stat decreases on the holder when their HP falls below 30%."
+  },
+  {
+   "name": "Fused Elec-Kernel",
+   "category": "Nuts, Proteins & Deli",
+   "desc": "A corn kernel crackling with power. Automatically consumed to absorb an incoming Electric-type attack, healing 25% HP instead."
+  },
+  {
+   "name": "Dread-Ooze Jelly",
+   "category": "Nuts, Proteins & Deli",
+   "desc": "A dark, shimmering preserve. Dark-type moves deal 1.2x damage if the target is already suffering from a stat drop."
+  },
+  {
+   "name": "Time-Warped Raisin",
+   "category": "Nuts, Proteins & Deli",
+   "desc": "A wrinkled, sweet dried grape. Reverses the turn order of the current round only upon activation (Holder acts first in its priority bracket)."
+  },
+  {
+   "name": "Malware-Bait Truffle",
+   "category": "Nuts, Proteins & Deli",
+   "desc": "A rare, corrupted fungus snack. If stolen or eaten by an enemy via moves like Nibble, it disables that enemy's ability for 3 turns."
+  },
+  {
+   "name": "Sweet-Crush Candy",
+   "category": "Nuts, Proteins & Deli",
+   "desc": "A hard, crystalline candy piece. Increases the scaling damage of consecutive hits (synergizes perfectly with Sugarcrush or Madness)."
+  },
+  {
+   "name": "Volcanic Rock-Salt",
+   "category": "Nuts, Proteins & Deli",
+   "desc": "Pure salt mined from magma vents. Fire- and Ground-type attacks used by the holder deal 10% more damage."
+  }
+ ],
+ "consumable": [
+  {
+   "name": "Thermal Flask-Brew",
+   "category": "Infusions & Brews",
+   "desc": "A insulated hot drink. If the user is hit by an Ice-type move, it consumes the item to immediately trigger 'Sunny Day' weather for 3 turns."
+  },
+  {
+   "name": "Static-Infused Tonic",
+   "category": "Infusions & Brews",
+   "desc": "A sparking potion. Upon consumption at low HP (<50%), it fills the field with Electric Terrain for 3 turns."
+  },
+  {
+   "name": "Spooky Spirit-Nectar",
+   "category": "Infusions & Brews",
+   "desc": "A ghostly concoction. When consumed by a Ghost-type, it swaps its current stat stages with the target's stat stages."
+  },
+  {
+   "name": "Briny Sea-Broth",
+   "category": "Infusions & Brews",
+   "desc": "A salty liquid packed with ocean nutrients. Consumed when Rain becomes active to heal the holder by 20% max HP."
+  },
+  {
+   "name": "Glitched Energy-Drink",
+   "category": "Infusions & Brews",
+   "desc": "A strange, pixelated beverage. If consumed inside a Glitched Room, it boosts the holder's lowest stat by 2 stages."
+  },
+  {
+   "name": "Echoing Soda-Pop",
+   "category": "Infusions & Brews",
+   "desc": "A carbonated drink. Consumed after the user uses a sound move, making the next sound move deal 30% more damage."
+  },
+  {
+   "name": "Volcanic Magma-Chai",
+   "category": "Infusions & Brews",
+   "desc": "A boiling tea. Consumed when the user enters the field in Sunlight, boosting its physical Attack stat by 1 stage."
+  },
+  {
+   "name": "Magnetic Oil-Blend",
+   "category": "Infusions & Brews",
+   "desc": "A metallic fluid. Consumed when a Steel-type move hits the holder, boosting its Defense and Sp. Def stats by 1 stage."
+  },
+  {
+   "name": "Aromatic Herbal-Extract",
+   "category": "Infusions & Brews",
+   "desc": "A soothing botanical extract. Consumed when the user is tormented or taunted, immediately curing the mental condition."
+  },
+  {
+   "name": "Bog-Water Elixir",
+   "category": "Infusions & Brews",
+   "desc": "A thick, muddy mixture. Consumed if hit by a Ground-type move, transforming the user's secondary type into Ground."
+  },
+  {
+   "name": "Clear-Sky Distillate",
+   "category": "Infusions & Brews",
+   "desc": "A transparent liquid. Consumed to immediately clear all weather conditions if a negative weather effect damages the holder."
+  },
+  {
+   "name": "Misty Flower-Tea",
+   "category": "Infusions & Brews",
+   "desc": "A pale brew. Consumed upon entry if Misty Terrain is active, boosting the user's Sp. Def stat by 1 stage."
+  },
+  {
+   "name": "Adrenaline Cold-Brew",
+   "category": "Infusions & Brews",
+   "desc": "An icy caffeine shot. Consumed if the user is brought down to exactly 1 HP, granting +2 Priority to its next move."
+  },
+  {
+   "name": "Toxic-Purge Vial",
+   "category": "Infusions & Brews",
+   "desc": "A reactive chemical agent. Consumed when Poisoned; cures the condition and inflicts normal Poison on the attacker."
+  },
+  {
+   "name": "Lunar-Dew Essence",
+   "category": "Infusions & Brews",
+   "desc": "A glowing silver liquid. Consumed under Full Moon weather to fully restore all depleted move PP for the user's first move slot."
+  },
+  {
+   "name": "Glazed Sugar-Shard",
+   "category": "Confections & Pastries",
+   "desc": "A sharp candy. Consumed when the user lands a critical hit, increasing critical hit damage multiplier by an extra 20% for that turn."
+  },
+  {
+   "name": "Gooey Marshmallow-Blob",
+   "category": "Confections & Pastries",
+   "desc": "A very sticky candy. Consumed when hit by a physical move, trapping the attacker (cannot switch out) for 3 turns."
+  },
+  {
+   "name": "Sour Powder-Bomb",
+   "category": "Confections & Pastries",
+   "desc": "An intensely sour candy block. Consumed if an enemy intimidates or lowers the user's stats, lowering that enemy's Defense by 1 stage."
+  },
+  {
+   "name": "Spicy Pepper-Chew",
+   "category": "Confections & Pastries",
+   "desc": "A hot gummy. Consumed when the user is Frozen, thawing them out instantly and boosting physical Attack by 1 stage."
+  },
+  {
+   "name": "Dark-Choc Ganache",
+   "category": "Confections & Pastries",
+   "desc": "A rich, bitter chocolate. Consumed when hit by a Dark-type move, extending the duration of any active Room by 1 turn."
+  },
+  {
+   "name": "Peppermint Crunch-Bar",
+   "category": "Confections & Pastries",
+   "desc": "A refreshing mint bar. Consumed when the user flinches, granting immunity to flinching for the rest of the battle."
+  },
+  {
+   "name": "Golden Honey-Drop",
+   "category": "Confections & Pastries",
+   "desc": "A pure, hardened honey drop. Consumed at full HP to absorb 50% of damage from the first incoming super-effective hit."
+  },
+  {
+   "name": "Fizzing Rock-Candy",
+   "category": "Confections & Pastries",
+   "desc": "Crackling candy pieces. Consumed when Electric Terrain ends, instantly boosting the holder's Speed stat by 1 stage."
+  },
+  {
+   "name": "Caramel Trap-Twist",
+   "category": "Confections & Pastries",
+   "desc": "A sticky caramel string. Consumed if an enemy tries to steal or destroy this item, lowering the enemy's Speed by 2 stages."
+  },
+  {
+   "name": "Full-Moon Macaron",
+   "category": "Confections & Pastries",
+   "desc": "A crescent-patterned cookie. Consumed when Full Moon weather ends, instantly resetting it for 2 more turns."
+  },
+  {
+   "name": "Sourdough Boule",
+   "category": "Baked Delicacies",
+   "desc": "A crusty bread loaf. Consumed upon entering the field if entry hazards are present, reducing hazard damage taken by half."
+  },
+  {
+   "name": "Cheesy Twister-Stick",
+   "category": "Baked Delicacies",
+   "desc": "A twisted snack. Consumed when the user uses a rolling or spinning move to boost the power of that move by 25%."
+  },
+  {
+   "name": "Charcoal Brioche-Bun",
+   "category": "Baked Delicacies",
+   "desc": "A black baked bun. Consumed when the holder is about to be burned, absorbing the ash to boost Defense by 1 stage instead."
+  },
+  {
+   "name": "Fluffy Pancake-Stack",
+   "category": "Baked Delicacies",
+   "desc": "A soft stack of mini pancakes. Consumed at <50% HP to restore 20% max HP to both the user and its active ally."
+  },
+  {
+   "name": "Seeded Rye-Cracker",
+   "category": "Baked Delicacies",
+   "desc": "A hard cracker. Consumed when hit by a physical contact move to deal a flat 15 HP damage back to the attacker."
+  },
+  {
+   "name": "Sweet Potato-Pie",
+   "category": "Baked Delicacies",
+   "desc": "A heavy, filling pie. Consumed upon entry to increase the user's weight tier by two levels for the next 3 turns."
+  },
+  {
+   "name": "Herb-Crusted Focaccia",
+   "category": "Baked Delicacies",
+   "desc": "A fragrant flatbread. Consumed when the user is afflicted with a status condition, passing the condition to its active ally if healthy."
+  },
+  {
+   "name": "Puffed Rice-Crispy",
+   "category": "Baked Delicacies",
+   "desc": "A very light snack. Consumed if the user is targeted by a weight-based move, forcing the move to deal minimum damage scaling."
+  },
+  {
+   "name": "Cinnamon Roll-Knot",
+   "category": "Baked Delicacies",
+   "desc": "A sweet pastry knot. Consumed when the user switches out, healing the incoming replacement Pokémon by 15% max HP."
+  },
+  {
+   "name": "Savory Meat-Pasty",
+   "category": "Baked Delicacies",
+   "desc": "A hearty pie filled with protein. Consumed when the user knocks out an opponent, boosting physical Defense by 1 stage."
+  },
+  {
+   "name": "Prickly Cactus-Pear",
+   "category": "Wilderness Harvest",
+   "desc": "A spiked desert fruit. Consumed when hit by a Water-type move, absorbing the moisture to boost Attack by 1 stage."
+  },
+  {
+   "name": "Frost-Bitten Plum",
+   "category": "Wilderness Harvest",
+   "desc": "A frozen wild fruit. Consumed under Hail or snow conditions to increase the user's Sp. Atk stat by 1 stage."
+  },
+  {
+   "name": "Sun-Baked Kernel",
+   "category": "Wilderness Harvest",
+   "desc": "A hard wild seed. Consumed under Sunlight to shield the user from any special attack secondary effects for 5 turns."
+  },
+  {
+   "name": "Deep-Rooted Truffle",
+   "category": "Wilderness Harvest",
+   "desc": "A rare subterranean find. Consumed when the user uses a digging or underground move, allowing it to strike on turn one."
+  },
+  {
+   "name": "Shocking Vine-Cluster",
+   "category": "Wilderness Harvest",
+   "desc": "A bunch of electrified wild berries. Consumed when the user sets up entry hazards, adding a paralyzing shock effect to them."
+  },
+  {
+   "name": "Bog-Moss Pod",
+   "category": "Wilderness Harvest",
+   "desc": "A spongy swamp seed pod. Consumed when hit by a Ground-type move, creating a muddy field that lowers all ground targets' Speed."
+  },
+  {
+   "name": "Glow-Stalk Tendril",
+   "category": "Wilderness Harvest",
+   "desc": "A bioluminescent wild plant. Consumed in dark or Haunted Room conditions to boost the user's accuracy by two stages."
+  },
+  {
+   "name": "Bitter Acorn-Nut",
+   "category": "Wilderness Harvest",
+   "desc": "A tough wild nut. Consumed when an opponent forces a stat drop, instantly reflecting the exact stat drop back onto them."
+  },
+  {
+   "name": "Sweet Orchid-Bulb",
+   "category": "Wilderness Harvest",
+   "desc": "A fragrant wild bulb flower. Consumed when Grass Terrain is active, protecting the user from status conditions for 3 turns."
+  },
+  {
+   "name": "Aura-Bloom Petals",
+   "category": "Wilderness Harvest",
+   "desc": "Glowing petals. Consumed when the user's stats are completely neutral, boosting its next move's damage by 20%."
+  },
+  {
+   "name": "Petrified Wood-Seed",
+   "category": "Wilderness Harvest",
+   "desc": "A fossilized seed. Consumed when hit by a super-effective Flying-type move, neutralizing the type multiplier once."
+  },
+  {
+   "name": "Brine-Sprout Kelp",
+   "category": "Wilderness Harvest",
+   "desc": "A sea sprout. Consumed under Rain weather, increasing the user's evasiveness by 1 stage for 3 turns."
+  },
+  {
+   "name": "Cinder-Ash Pod",
+   "category": "Wilderness Harvest",
+   "desc": "A pod covered in volcanic soot. Consumed when hit by a Fire-type move to boost the user's Speed stat by 1 stage."
+  },
+  {
+   "name": "Feather-Grass Tuft",
+   "category": "Wilderness Harvest",
+   "desc": "A soft, airy grass tuft. Consumed upon entry to completely grant immunity to Ground-type moves for the first 2 turns."
+  },
+  {
+   "name": "Midnight Bramble-Berry",
+   "category": "Wilderness Harvest",
+   "desc": "A dark, thorny berry. Consumed at low HP (<30%) to deal 20% of the user's max HP as direct damage to the opponent."
+  }
+ ],
+ "battle": [
+  {
+   "name": "Glitch-Drive",
+   "category": "Held Tech & Modules",
+   "desc": "Permanently alters the user's secondary typing to match the active Room condition (like Haunted Room or Glitched Room) upon entering the field."
+  },
+  {
+   "name": "DDOS-Amplifier",
+   "category": "Held Tech & Modules",
+   "desc": "Boosts the power of multi-strike moves by 10% per hit. If the move hits 5 times, it lowers the target's Sp. Def by an additional stage."
+  },
+  {
+   "name": "Static Capacitor",
+   "category": "Held Tech & Modules",
+   "desc": "Absorbs incoming electric current. When hit by an Electric-type attack, it increases the user's Speed stat by 1 stage instead of dealing damage."
+  },
+  {
+   "name": "Malware-Shield Patch",
+   "category": "Held Tech & Modules",
+   "desc": "A protective firewall chip. Prevents the holder's ability from being suppressed, modified, or replaced by enemy attacks or abilities."
+  },
+  {
+   "name": "Surge Suppressor",
+   "category": "Held Tech & Modules",
+   "desc": "If the holder is hit by an Electric-type move while Paralyzed, it consumes the item to discharge the energy, curing the paralysis instantly."
+  },
+  {
+   "name": "Antenna Link-Cable",
+   "category": "Held Tech & Modules",
+   "desc": "Boosts the accuracy of sound-based and pulse moves by 20%. If an ally is active, they gain the same accuracy boost."
+  },
+  {
+   "name": "Overclock Battery",
+   "category": "Held Tech & Modules",
+   "desc": "Raises the user's Sp. Atk by 2 stages when HP drops below 25%, but inflicts a flat 10% recoil damage on the user at the end of each turn."
+  },
+  {
+   "name": "Encryption Key",
+   "category": "Held Tech & Modules",
+   "desc": "Protects the user from entry hazard secondary effects (like paralysis from Live Wire) upon switching into battle once."
+  },
+  {
+   "name": "Code-Breaker Dongle",
+   "category": "Held Tech & Modules",
+   "desc": "Allows the user's attacking moves to bypass protective screens like Reflect, Light Screen, or Brick Shelter entirely."
+  },
+  {
+   "name": "Data-Log Chip",
+   "category": "Held Tech & Modules",
+   "desc": "Reveals the held items of all opposing Pokémon on the field immediately upon the holder switching into battle."
+  },
+  {
+   "name": "Proxy-Router Core",
+   "category": "Held Tech & Modules",
+   "desc": "Redirects single-target status moves aimed at the holder to a random opponent on the field once per battle."
+  },
+  {
+   "name": "Feedback Looper",
+   "category": "Held Tech & Modules",
+   "desc": "If the holder is flinched by an opponent's move, it consumes the item to lower the attacker's Speed stat by 2 stages."
+  },
+  {
+   "name": "Quantum Core",
+   "category": "Held Tech & Modules",
+   "desc": "Reverses the turn priority inside any Room condition (like Trick Room or Glitched Room) specifically for the holder."
+  },
+  {
+   "name": "Signal Booster",
+   "category": "Held Tech & Modules",
+   "desc": "Increases the priority of electronic, digital, or pulse moves by +1 on the very first turn the holder enters the field."
+  },
+  {
+   "name": "EMP Grenade",
+   "category": "Held Tech & Modules",
+   "desc": "A single-use device. If the holder faints from an enemy attack, it disables the attacker's held item for the rest of the battle."
+  },
+  {
+   "name": "Polished Shard-Mirror",
+   "category": "Mystic Relics & Charms",
+   "desc": "If the holder sets up a defensive screen or barrier, it immediately reflects 15% of incoming special attack damage back to the attacker."
+  },
+  {
+   "name": "Haunted Doll-Eye",
+   "category": "Mystic Relics & Charms",
+   "desc": "Extends the duration of the Haunted Room field effect by 2 additional turns if activated while the holder is on the field."
+  },
+  {
+   "name": "Marionette String",
+   "category": "Mystic Relics & Charms",
+   "desc": "Increases the accuracy of psychic and telekinetic moves by 15%. Bypasses evasion changes of the target."
+  },
+  {
+   "name": "Psychic Catalyst",
+   "category": "Mystic Relics & Charms",
+   "desc": "Increases the holder's damage output by 20% while any Terrain (like Psychic or Electric Terrain) is currently active."
+  },
+  {
+   "name": "Soul-Link Ribbon",
+   "category": "Mystic Relics & Charms",
+   "desc": "In double battles, if the holder's partner is knocked out, the holder absorbs their lingering energy to boost Sp. Atk by 1 stage."
+  },
+  {
+   "name": "Hexing Incense",
+   "category": "Mystic Relics & Charms",
+   "desc": "Increases the chance of secondary status conditions (like poisoning or sleep) from the user's moves by 10%."
+  },
+  {
+   "name": "Full Moon Pendant",
+   "category": "Mystic Relics & Charms",
+   "desc": "Boosts the power of Ghost- and Fairy-type moves by 15% as long as the Full Moon weather condition is active."
+  },
+  {
+   "name": "Cursed Handkerchief",
+   "category": "Mystic Relics & Charms",
+   "desc": "Contact moves used against the holder have a 30% chance to inflict the Curse condition on the attacker."
+  },
+  {
+   "name": "Kaleido-Charm",
+   "category": "Mystic Relics & Charms",
+   "desc": "Automatically changes the holder's primary typing to match the type of the first move used against it in battle once."
+  },
+  {
+   "name": "Twilight Hourglass",
+   "category": "Mystic Relics & Charms",
+   "desc": "Delays the automatic fading of field, weather, or room conditions by exactly 1 turn while the holder remains active."
+  },
+  {
+   "name": "Magnetite Core",
+   "category": "Natural Elements & Ores",
+   "desc": "Increases the holder's weight tier significantly. If hit by an Electric-type attack, boosts the user's Defense stat by 1 stage."
+  },
+  {
+   "name": "Splintered Bark",
+   "category": "Natural Elements & Ores",
+   "desc": "If the holder is hit by a physical contact move, it automatically scatters sharp bark as stealth rocks on the enemy field once."
+  },
+  {
+   "name": "Volcanic Sulfur Ore",
+   "category": "Natural Elements & Ores",
+   "desc": "Increases the power of Fire-type moves by 15%. Grants immunity to the Burn status condition while held."
+  },
+  {
+   "name": "Bog-Mud Clump",
+   "category": "Natural Elements & Ores",
+   "desc": "Enhances Ground-type moves by 15% when used under Rain. Synergizes perfectly with abilities like Mud Rush."
+  },
+  {
+   "name": "Deep-Sea Fossil",
+   "category": "Natural Elements & Ores",
+   "desc": "Reduces damage taken from super-effective Rock- and Steel-type moves by 25% while the holder has full HP."
+  },
+  {
+   "name": "Amber Crystal Resin",
+   "category": "Natural Elements & Ores",
+   "desc": "Prevents critical hits from dealing extra damage to the holder. Converts critical hits into normal neutral damage."
+  },
+  {
+   "name": "Granite Anchor",
+   "category": "Natural Elements & Ores",
+   "desc": "Halves the user's Initiative stat, but completely prevents the holder from being forced to switch out by enemy moves."
+  },
+  {
+   "name": "Petrified Sap",
+   "category": "Natural Elements & Ores",
+   "desc": "Restores 1/16 of the holder's maximum HP at the end of every turn specifically when the active weather condition is clear."
+  },
+  {
+   "name": "Quartz Spike",
+   "category": "Natural Elements & Ores",
+   "desc": "Allows Ground-type moves used by the holder to bypass immunities and deal neutral damage to Flying or hovering targets."
+  },
+  {
+   "name": "Brine-Encrusted Stone",
+   "category": "Natural Elements & Ores",
+   "desc": "Increases the power of Water-type moves by 15% and reduces incoming Fire-type damage by 20."
+  },
+  {
+   "name": "Spike-Shield Plating",
+   "category": "Tactical Gear & Armaments",
+   "desc": "Reduces contact damage taken by 15%. If hit by a physical contact move, sets up 1 layer of spikes on the enemy field once."
+  },
+  {
+   "name": "Spring-Loaded Boots",
+   "category": "Tactical Gear & Armaments",
+   "desc": "The holder completely ignores the effects and damage of all entry hazards (Spikes, Stealth Rock, Live Wire) upon switching in."
+  },
+  {
+   "name": "Executioner Goggles",
+   "category": "Tactical Gear & Armaments",
+   "desc": "Increases the critical hit ratio of all cutting, slashing, and severing moves used by the holder by 1 stage."
+  },
+  {
+   "name": "Payload Belt",
+   "category": "Tactical Gear & Armaments",
+   "desc": "Minimizes the negative effects of self-damaging recoil moves, reducing the recoil damage taken by the user by 30%."
+  },
+  {
+   "name": "Heavy Plated Bracers",
+   "category": "Tactical Gear & Armaments",
+   "desc": "Increases the damage of weight-based moves and physical strikes by 15%, but decreases the user's Speed by 5%."
+  },
+  {
+   "name": "Targeting Scope",
+   "category": "Tactical Gear & Armaments",
+   "desc": "Increases the accuracy of all physical moves by 10%. Guarantees that the holder's next move cannot miss if it slower than the target."
+  },
+  {
+   "name": "Assault Vestment",
+   "category": "Tactical Gear & Armaments",
+   "desc": "Boosts the holder's Sp. Def stat by 50%, but prevents the user from selecting or using any status/non-damaging moves."
+  },
+  {
+   "name": "Counter-Weight Weights",
+   "category": "Tactical Gear & Armaments",
+   "desc": "Reverses the damage calculations for physical moves that compare weight tiers, favoring the holder if they are lighter."
+  },
+  {
+   "name": "Safety Harness",
+   "category": "Tactical Gear & Armaments",
+   "desc": "Prevents the holder from being knocked out by a single, devastating one-hit-KO move from full health, leaving them at 1 HP."
+  },
+  {
+   "name": "Adrenaline Injection",
+   "category": "Tactical Gear & Armaments",
+   "desc": "Increases the holder's Attack and Speed stats by 1 stage if they fall below 50% HP due to direct attack damage once."
+  },
+  {
+   "name": "Iron Collar Ring",
+   "category": "Tactical Gear & Armaments",
+   "desc": "Reduces damage taken from incoming physical contact moves by 33%, but increases damage taken from special attacks by 15%."
+  },
+  {
+   "name": "Feather-Weight Glider",
+   "category": "Tactical Gear & Armaments",
+   "desc": "Grants the holder an artificial immunity to all Ground-type moves while Electric Terrain or Rain is active on the field."
+  },
+  {
+   "name": "Bladed Gauntlets",
+   "category": "Tactical Gear & Armaments",
+   "desc": "Contact attacks used by the holder deal an additional 10% damage if the target is protected by a shield or substitute."
+  },
+  {
+   "name": "Smokescreen Canister",
+   "category": "Tactical Gear & Armaments",
+   "desc": "Automatically lowers the accuracy of all opposing Pokémon on the field by 1 stage upon the holder switching out of battle once."
+  },
+  {
+   "name": "Quick-Claw Greaves",
+   "category": "Tactical Gear & Armaments",
+   "desc": "Grants a 20% chance for the holder to completely ignore priority brackets and move first within their turn."
+  }
+ ],
+ "permanent": [
+  {
+   "name": "Thermal Heatsink",
+   "category": "Advanced Tech & Hardware",
+   "desc": "Reduces damage taken from regional field hazards or environmental field damages by 50%."
+  },
+  {
+   "name": "Resonance Tuning Fork",
+   "category": "Advanced Tech & Hardware",
+   "desc": "Sound-based moves used by the holder or its partner deal 10% more damage and sound moves hitting them deal 10% less."
+  },
+  {
+   "name": "Glitched Logic-Board",
+   "category": "Advanced Tech & Hardware",
+   "desc": "When a Room effect (like Trick Room or Glitched Room) ends, the holder's lowest stat increases by 1 stage."
+  },
+  {
+   "name": "Induction Coils",
+   "category": "Advanced Tech & Hardware",
+   "desc": "If Electric Terrain is active, the holder's physical contact attacks have a 10% chance to induce flinching."
+  },
+  {
+   "name": "Heuristic Analyzer",
+   "category": "Advanced Tech & Hardware",
+   "desc": "Each time the opponent uses the same move consecutively, the holder takes 10% less damage from that specific move."
+  },
+  {
+   "name": "Optical Prism Lens",
+   "category": "Advanced Tech & Hardware",
+   "desc": "Increases the holder's critical hit ratio by 1 stage specifically against targets that have an active evasion boost."
+  },
+  {
+   "name": "Static Earth-Ground",
+   "category": "Advanced Tech & Hardware",
+   "desc": "The holder cannot be forced to swap positions or switch out while an Electric Terrain is present on the field."
+  },
+  {
+   "name": "Buffer-Overflow Chip",
+   "category": "Advanced Tech & Hardware",
+   "desc": "If the holder's stats are lowered by an opponent's status move, the holder's Speed increases by 1 stage."
+  },
+  {
+   "name": "Auxiliary Solar-Panel",
+   "category": "Advanced Tech & Hardware",
+   "desc": "Under Sunlight weather, the holder's secondary type moves deal 10% more damage."
+  },
+  {
+   "name": "Sub-Aquatic Valve",
+   "category": "Advanced Tech & Hardware",
+   "desc": "Under Rain weather, the holder's secondary type moves deal 10% more damage."
+  },
+  {
+   "name": "Kinetic Dynamo",
+   "category": "Advanced Tech & Hardware",
+   "desc": "Each time the holder uses a rolling, spinning, or multi-strike move, its Speed increases by 1 stage up to a maximum of 3 times per switch-in."
+  },
+  {
+   "name": "Decoupling Interface",
+   "category": "Advanced Tech & Hardware",
+   "desc": "Protects the holder from having its own held item disabled, stolen, or destroyed by opponents' moves."
+  },
+  {
+   "name": "Encrypted Transceiver",
+   "category": "Advanced Tech & Hardware",
+   "desc": "In Double Battles, increases the power of the partner's moves by 5% if they share a typing with the holder."
+  },
+  {
+   "name": "Haunted Loom Shard",
+   "category": "Mystical Seals & Relics",
+   "desc": "While inside a Haunted Room, the holder's status moves gain +1 priority if its HP is above 50%."
+  },
+  {
+   "name": "Waxen Candle-Stub",
+   "category": "Mystical Seals & Relics",
+   "desc": "If the holder knocks out an opponent, the active field weather or room duration is extended by 1 turn."
+  },
+  {
+   "name": "Ethereal Veil-Weft",
+   "category": "Mystical Seals & Relics",
+   "desc": "The holder acts as if it has the Ghost-type specifically for dodging trapping effects and switching out freely."
+  },
+  {
+   "name": "Voodoo Puppet-Pin",
+   "category": "Mystical Seals & Relics",
+   "desc": "When the holder is hit by an opponent's Signature Move, that opponent loses 1/8 of its maximum HP."
+  },
+  {
+   "name": "Chalk Inscription Seal",
+   "category": "Mystical Seals & Relics",
+   "desc": "Protects the holder from receiving damage from the Curse status or field-based recurrent curses."
+  },
+  {
+   "name": "Mirror-Glass Monocle",
+   "category": "Mystical Seals & Relics",
+   "desc": "The holder ignores the target's stat boosts when calculating damage using Special Attacks."
+  },
+  {
+   "name": "Full-Moon Incense-Burner",
+   "category": "Mystical Seals & Relics",
+   "desc": "While Full Moon weather is active, prevents the holder from being inflicted with sleep, freeze, or drowsiness."
+  },
+  {
+   "name": "Ancestral Oak-Leaf",
+   "category": "Mystical Seals & Relics",
+   "desc": "When the holder sets up a substitute, the substitute takes 15% less damage from Special Attacks."
+  },
+  {
+   "name": "Petrified Cocoon-Shell",
+   "category": "Mystical Seals & Relics",
+   "desc": "Increases the holder's Defense by 10% but decreases its physical contact attack output by 5."
+  },
+  {
+   "name": "Fae Powder-Pouch",
+   "category": "Mystical Seals & Relics",
+   "desc": "Fairy-type moves used by the holder have a 10% chance to lower the target's Attack stat by 1 stage."
+  },
+  {
+   "name": "Twilight Boundary-Stone",
+   "category": "Mystical Seals & Relics",
+   "desc": "If the holder is the slowest Pokémon on the field, its status moves cannot be blocked by Taunt effects."
+  },
+  {
+   "name": "Astral Alignment Dial",
+   "category": "Mystical Seals & Relics",
+   "desc": "Lifts the type immunities of Dark-type opponents specifically against the holder's Psychic-type status moves."
+  },
+  {
+   "name": "Splinter-Bark Husk",
+   "category": "Geological Alloys & Elements",
+   "desc": "If the holder is hit by a physical contact move, the attacker takes 1/10 of the damage dealt back as recoil."
+  },
+  {
+   "name": "Pumice Float-Stone",
+   "category": "Geological Alloys & Elements",
+   "desc": "Decreases the user's weight tier by two. Increases the holder's Initiative by 10% if its weight is below the target's weight."
+  },
+  {
+   "name": "Volcanic Ash-Filter",
+   "category": "Geological Alloys & Elements",
+   "desc": "The holder is completely immune to the accuracy-lowering effects of smoke, fog, or sandstorm hazards."
+  },
+  {
+   "name": "Deep-Sea Crust-Chitin",
+   "category": "Geological Alloys & Elements",
+   "desc": "Reduces damage taken from super-effective physical contact moves by 12%."
+  },
+  {
+   "name": "Briny Coral-Branch",
+   "category": "Geological Alloys & Elements",
+   "desc": "If the holder is a Water-type, its Grass-type moves deal 15% more damage; if a Grass-type, its Water-type moves deal 15% more."
+  },
+  {
+   "name": "Lodestone Stabilizer",
+   "category": "Geological Alloys & Elements",
+   "desc": "Prevents the holder from being moved, lifted, or grounded by gravity, telekinesis, or throwing attacks."
+  },
+  {
+   "name": "Searing Magma-Core",
+   "category": "Geological Alloys & Elements",
+   "desc": "The holder's physical attacks have a 10% chance to burn the target if the weather is Sunlight."
+  },
+  {
+   "name": "Glacial Ice-Shard",
+   "category": "Geological Alloys & Elements",
+   "desc": "The holder's special attacks have a 10% chance to lower the target's Speed by 1 stage if the weather is Rain or Hail."
+  },
+  {
+   "name": "Bog-Iron Plating",
+   "category": "Geological Alloys & Elements",
+   "desc": "Ground-type moves used by the holder deal 10% more damage if the holder's HP is below 50%."
+  },
+  {
+   "name": "Quartz Resonator",
+   "category": "Geological Alloys & Elements",
+   "desc": "When the holder enters a field with an active terrain, it increases its Sp. Def stat by 1 stage."
+  },
+  {
+   "name": "Hard-Clay Bedding",
+   "category": "Geological Alloys & Elements",
+   "desc": "Reduces recurrent damage taken from status conditions (like Poison or Burn) by 33%."
+  },
+  {
+   "name": "Heavy Slate-Shield",
+   "category": "Geological Alloys & Elements",
+   "desc": "Protects the holder from extra critical hit damage from cutting, slashing, or severing attacks."
+  },
+  {
+   "name": "Spike-Spurred Greaves",
+   "category": "Auxiliary Combat Rigging",
+   "desc": "Increases the damage of the holder's kicking and rolling moves by 12%."
+  },
+  {
+   "name": "Spring-Coiled Bracers",
+   "category": "Auxiliary Combat Rigging",
+   "desc": "The holder's physical attacks that have negative priority brackets (like -1 priority) deal 15% more damage."
+  },
+  {
+   "name": "Executioner-Scope Ring",
+   "category": "Auxiliary Combat Rigging",
+   "desc": "If the target is below 30% of its maximum HP, the holder's attacks are guaranteed to hit cleanly regardless of accuracy checks."
+  },
+  {
+   "name": "Recoil-Damping Harness",
+   "category": "Auxiliary Combat Rigging",
+   "desc": "Reduces all recoil and self-inflicted crash damage from the holder's own physical attacks by 20%."
+  },
+  {
+   "name": "Targeting Monocular",
+   "category": "Auxiliary Combat Rigging",
+   "desc": "Bypasses the target's protection or substitutes specifically for moves that do not deal direct damage (status moves)."
+  },
+  {
+   "name": "Reinforced Gorget",
+   "category": "Auxiliary Combat Rigging",
+   "desc": "Reduces damage taken from multi-strike attacks by 15% per consecutive hit received within the same turn."
+  },
+  {
+   "name": "Weighted Anchor-Belt",
+   "category": "Auxiliary Combat Rigging",
+   "desc": "Increases weight-based damage calculations by 15% but prevents the holder's initiative from being boosted by items or partner abilities."
+  },
+  {
+   "name": "Counter-Balance Rig",
+   "category": "Auxiliary Combat Rigging",
+   "desc": "If the holder is attacked by an opponent with a higher stat total, the holder's lowest stat increases by 1 stage once per switch-in."
+  },
+  {
+   "name": "Insulated Under-Armor",
+   "category": "Auxiliary Combat Rigging",
+   "desc": "Reduces damage taken from Fire- and Electric-type Special Attacks by 15%."
+  },
+  {
+   "name": "Bladed Gauntlet-Extension",
+   "category": "Auxiliary Combat Rigging",
+   "desc": "The holder's cutting, slashing, and severing moves deal 10% more damage against targets behind protective barriers."
+  },
+  {
+   "name": "Quick-Release Buckle",
+   "category": "Auxiliary Combat Rigging",
+   "desc": "The holder's priority status moves (+1 or higher) are 15% more accurate."
+  },
+  {
+   "name": "Heavy-Plated Sabatons",
+   "category": "Auxiliary Combat Rigging",
+   "desc": "The holder is unaffected by entry hazard traps that lower stats (like stat reductions from specific floor cables) upon entry."
+  },
+  {
+   "name": "Padded Weighted-Vest",
+   "category": "Auxiliary Combat Rigging",
+   "desc": "Increases Defense by 10% but increases damage taken from super-effective weight-based attacks by 15%."
+  }
+ ]
+}

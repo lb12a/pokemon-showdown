@@ -146,6 +146,11 @@ export const Rulesets: import('../../../sim/dex-formats').ModdedFormatDataTable 
 			}
 		},
 
+		// Toxic-Purge Vial needs to know who poisoned the holder.
+		onAnyAfterSetStatus(status, target, source) {
+			if (source && source !== target) target.m.fakemonStatusSource = source;
+		},
+
 		onAnyAfterBoost(boost, target, source, effect) {
 			if (!target) return;
 			const seen = (target.m.boostsThisTurn ||= {}) as SparseBoostsTable;

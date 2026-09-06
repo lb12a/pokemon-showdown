@@ -91,7 +91,10 @@ export const Scripts: ModdedBattleScriptsData = {
 
 		// --- moves: custom moves, plus mechanic providers nobody can select ---
 		for (const id in this.data.Moves) {
-			if (keepMoves.has(id)) continue;
+			// The index lists the selectable moves; internal helpers this mod
+			// defines (Needle Jab's counter, Barbed Counter's hit) are tagged
+			// Custom instead, and deleting them would silently break their move.
+			if (keepMoves.has(id) || this.data.Moves[id].isNonstandard === 'Custom') continue;
 			if (mechanicMoves.has(id)) {
 				const move = this.modData('Moves', id);
 				move.isNonstandard = 'Custom';

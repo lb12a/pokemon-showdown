@@ -90,8 +90,12 @@ export const SignatureMoves: import('../../../sim/dex-moves').ModdedMoveDataTabl
 		pp: 10,
 		priority: 0,
 		flags: { protect: 1, mirror: 1, sound: 1, bypasssub: 1 },
-		onModifyPriority(priority, source, target, move) {
-			if (target && target.runEffectiveness(move) > 0) return priority + 1;
+		onModifyPriority(priority, source, target) {
+			// A move's own ModifyPriority event is fired by singleEvent, which passes
+			// no sourceEffect - so the move has to be looked up rather than received.
+			if (target && target.runEffectiveness(this.dex.getActiveMove('antennapulse')) > 0) {
+				return priority + 1;
+			}
 		},
 		target: 'normal',
 		type: "Steel",
@@ -2029,6 +2033,11 @@ export const SignatureMoves: import('../../../sim/dex-moves').ModdedMoveDataTabl
 				const jab = this.dex.getActiveMove('needlejab');
 				jab.volatileStatus = undefined;
 				this.actions.useMove(jab, target, { target: source });
+			},
+			onEnd(pokemon) {
+				// Without this the "already retaliated" marker would last the
+				// whole battle instead of the turn.
+				pokemon.removeVolatile('needlejabused');
 			},
 		},
 		target: 'self',

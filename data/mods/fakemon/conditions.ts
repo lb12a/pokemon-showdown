@@ -27,7 +27,10 @@ export const Conditions: import('../../../sim/dex-conditions').ModdedConditionDa
 		effectType: 'Weather',
 		duration: 5,
 		durationCallback(source) {
-			return source?.hasItem('lunarrock') ? 8 : 5;
+			if (source?.hasItem('lunarrock')) return 8;
+			// Moon-Dusted Croissant (items-food.ts) is the weaker extender.
+			if (this.getAllActive().some(mon => mon.hasItem('moondustedcroissant'))) return 7;
+			return 5;
 		},
 		onWeatherModifyDamage(damage, attacker, defender, move) {
 			if (move.type === 'Ghost') {
@@ -94,6 +97,10 @@ export const Conditions: import('../../../sim/dex-conditions').ModdedConditionDa
 		name: 'Haunted Room',
 		effectType: 'Weather',
 		duration: 5,
+		// Haunted Doll-Eye (items-battle.ts) keeps the room up for longer.
+		durationCallback() {
+			return this.getAllActive().some(mon => mon.hasItem('haunteddolleye')) ? 7 : 5;
+		},
 		onFieldStart() {
 			this.add('-fieldstart', 'move: Haunted Room');
 			for (const pokemon of this.getAllActive()) {
@@ -798,6 +805,338 @@ export const Conditions: import('../../../sim/dex-conditions').ModdedConditionDa
 			if (move.flags['contact'] && source.hp && this.randomChance(1, 5)) {
 				source.trySetStatus('par', target);
 			}
+		},
+	},
+
+	// ======================================================================
+	// 5. CONDITIONS CREATED BY THE ITEM TABLES
+	// ======================================================================
+
+	/**
+	 * Malware-Bait Truffle: the thief's Ability stops working for 3 turns.
+	 * Pokemon#ignoringAbility only knows about Gastro Acid, so this timer drives
+	 * that volatile instead of inventing a second suppression flag.
+	 */
+	fakemonitemabilitylock: {
+		name: 'fakemonitemabilitylock',
+		duration: 3,
+		onStart(pokemon) {
+			pokemon.addVolatile('gastroacid');
+			this.add('-message', `${pokemon.name}'s Ability was corrupted by the Malware-Bait Truffle!`);
+		},
+		onEnd(pokemon) {
+			pokemon.removeVolatile('gastroacid');
+			this.add('-message', `${pokemon.name}'s Ability came back online.`);
+		},
+	},
+
+	/**
+	 * EMP Grenade: the attacker's held item stops working for the rest of the
+	 * battle. Pokemon#ignoringItem checks Embargo, so this keeps Embargo topped
+	 * up instead of adding a second "item is off" flag to the engine.
+	 */
+	fakemonitemlock: {
+		name: 'fakemonitemlock',
+		noCopy: true,
+		onStart(pokemon) {
+			pokemon.addVolatile('embargo');
+			this.add('-message', `${pokemon.name}'s held item was fried!`);
+		},
+		onResidualOrder: 28,
+		onResidual(pokemon) {
+			if (!pokemon.volatiles['embargo']) pokemon.addVolatile('embargo');
+		},
+		onSwitchIn(pokemon) {
+			if (!pokemon.volatiles['embargo']) pokemon.addVolatile('embargo');
+		},
+	},
+
+	/** Adrenaline Cold-Brew: the holder's next move gets +2 priority. */
+	fakemonpriorityrush: {
+		name: 'fakemonpriorityrush',
+		duration: 2,
+		onStart(pokemon) {
+			this.add('-start', pokemon, 'Adrenaline Rush');
+		},
+		onModifyPriority(priority) {
+			return priority + 2;
+		},
+		onAfterMove(pokemon) {
+			pokemon.removeVolatile('fakemonpriorityrush');
+		},
+		onEnd(pokemon) {
+			this.add('-end', pokemon, 'Adrenaline Rush');
+		},
+	},
+
+	/** Peppermint Crunch-Bar: the holder can never flinch again. */
+	fakemonflinchguard: {
+		name: 'fakemonflinchguard',
+		noCopy: true,
+		onStart(pokemon) {
+			this.add('-start', pokemon, 'Flinch Guard');
+		},
+		onTryAddVolatile(status, pokemon) {
+			if (status.id === 'flinch') {
+				this.add('-activate', pokemon, 'item: Peppermint Crunch-Bar');
+				return null;
+			}
+		},
+	},
+
+	/** Sweet Potato-Pie: the holder weighs four times as much for 3 turns. */
+	fakemonheavyload: {
+		name: 'fakemonheavyload',
+		duration: 3,
+		onStart(pokemon) {
+			this.add('-start', pokemon, 'Heavy Load');
+		},
+		onModifyWeight(weighthg) {
+			return weighthg * 4;
+		},
+		onEnd(pokemon) {
+			this.add('-end', pokemon, 'Heavy Load');
+		},
+	},
+
+	/** Sun-Baked Kernel: special moves lose their secondary effects on the holder. */
+	fakemonsecondaryward: {
+		name: 'fakemonsecondaryward',
+		duration: 5,
+		onStart(pokemon) {
+			this.add('-start', pokemon, 'Secondary Ward');
+		},
+		onFoeModifySecondaries(secondaries, target, source, move) {
+			if (move.category !== 'Special') return secondaries;
+			return secondaries.filter(effect => !!effect.self);
+		},
+		onEnd(pokemon) {
+			this.add('-end', pokemon, 'Secondary Ward');
+		},
+	},
+
+	/** Feather-Grass Tuft: two turns of Ground immunity. */
+	fakemongroundguard: {
+		name: 'fakemongroundguard',
+		duration: 2,
+		onStart(pokemon) {
+			this.add('-start', pokemon, 'Ground Guard');
+		},
+		onImmunity(type) {
+			if (type === 'Ground') return false;
+		},
+		onTryHit(target, source, move) {
+			if (target !== source && move.type === 'Ground' && move.category !== 'Status') {
+				this.add('-immune', target, '[from] Ground Guard');
+				return null;
+			}
+		},
+		onEnd(pokemon) {
+			this.add('-end', pokemon, 'Ground Guard');
+		},
+	},
+
+	/** Encryption Key / Spring-Loaded Boots: entry hazards cannot apply side effects. */
+	fakemonhazardward: {
+		name: 'fakemonhazardward',
+		duration: 1,
+		onTryBoost(boost, target, source, effect) {
+			if (!effect || !['stickyweb', 'livewire', 'fakemonelectrifiedground'].includes(effect.id)) return;
+			let stat: BoostID;
+			for (stat in boost) {
+				if (boost[stat]! < 0) delete boost[stat];
+			}
+		},
+		onSetStatus(status, target, source, effect) {
+			if (effect && ['toxicspikes', 'livewire', 'fakemonelectrifiedground'].includes(effect.id)) return false;
+		},
+	},
+
+	/** Cinnamon Roll-Knot: the next Pokemon to come in is healed. */
+	fakemonwelcomeheal: {
+		name: 'fakemonwelcomeheal',
+		duration: 2,
+		onSideStart(side) {
+			this.add('-sidestart', side, 'Cinnamon Roll-Knot');
+		},
+		onSwitchIn(pokemon) {
+			this.heal(pokemon.baseMaxhp * 0.15, pokemon);
+			pokemon.side.removeSideCondition('fakemonwelcomeheal');
+		},
+		onSideEnd(side) {
+			this.add('-sideend', side, 'Cinnamon Roll-Knot');
+		},
+	},
+
+	// ======================================================================
+	// 6. CONDITIONS CREATED BY THE COMPILED MOVE EFFECTS
+	// ======================================================================
+
+	/** Deep Breath: the user's next attack moves first. */
+	fakemonpriority1: {
+		name: 'fakemonpriority1',
+		duration: 2,
+		onStart(pokemon) {
+			this.add('-start', pokemon, 'Deep Breath');
+		},
+		onModifyPriority(priority) {
+			return priority + 1;
+		},
+		onAfterMove(pokemon) {
+			pokemon.removeVolatile('fakemonpriority1');
+		},
+		onEnd(pokemon) {
+			this.add('-end', pokemon, 'Deep Breath');
+		},
+	},
+
+	/** Scrap Shield: one type hits the user twice as hard this turn. */
+	fakemonexposed: {
+		name: 'fakemonexposed',
+		duration: 2,
+		onStart(pokemon) {
+			this.add('-start', pokemon, 'Exposed');
+		},
+		onSourceModifyDamage(damage, source, target, move) {
+			if (move.type === this.effectState.weakType) return this.chainModify(2);
+		},
+		onEnd(pokemon) {
+			this.add('-end', pokemon, 'Exposed');
+		},
+	},
+
+	/** Submission Hold: the same stat keeps dropping while the target stays in. */
+	fakemonwither: {
+		name: 'fakemonwither',
+		noCopy: true,
+		onStart(pokemon) {
+			this.add('-start', pokemon, 'Submission Hold');
+		},
+		onResidualOrder: 12,
+		onResidual(pokemon) {
+			const stat = this.effectState.stat as BoostID;
+			const amount = this.effectState.amount as number;
+			if (!stat) return;
+			this.boost({ [stat]: -amount }, pokemon, pokemon, this.dex.conditions.get('fakemonwither'));
+		},
+		onEnd(pokemon) {
+			this.add('-end', pokemon, 'Submission Hold');
+		},
+	},
+
+	/** False Promise: the healing is paid back over the following turns. */
+	fakemondelayeddamage: {
+		name: 'fakemondelayeddamage',
+		duration: 4,
+		onStart(pokemon) {
+			this.add('-start', pokemon, 'False Promise');
+		},
+		onResidualOrder: 13,
+		onResidual(pokemon) {
+			const fraction = this.effectState.fraction as number;
+			if (!fraction) return;
+			this.damage(pokemon.baseMaxhp * fraction, pokemon, pokemon,
+				this.dex.conditions.get('fakemondelayeddamage'));
+		},
+		onEnd(pokemon) {
+			this.add('-end', pokemon, 'False Promise');
+		},
+	},
+
+	/** Algae Bloom: allies of one type regenerate every turn. */
+	fakemontyperegen: {
+		name: 'fakemontyperegen',
+		duration: 5,
+		onSideStart(side) {
+			this.add('-sidestart', side, 'Algae Bloom');
+		},
+		onSideResidualOrder: 26,
+		onSideResidual(side) {
+			const type = this.effectState.regenType as string;
+			const fraction = this.effectState.fraction as number;
+			if (!type || !fraction) return;
+			for (const pokemon of side.active) {
+				if (pokemon?.hp && pokemon.hasType(type)) this.heal(pokemon.baseMaxhp * fraction, pokemon);
+			}
+		},
+		onSideEnd(side) {
+			this.add('-sideend', side, 'Algae Bloom');
+		},
+	},
+
+	/** Aero Shield: blocks physical moves and softens special ones to 1/4. */
+	fakemonaeroshield: {
+		name: 'fakemonaeroshield',
+		duration: 1,
+		onStart(target) {
+			this.add('-singleturn', target, 'move: Aero Shield');
+		},
+		onTryHitPriority: 3,
+		onTryHit(target, source, move) {
+			if (!move.flags['protect'] || move.category === 'Status') return;
+			if (move.category === 'Physical') {
+				this.add('-activate', target, 'move: Aero Shield');
+				const lockedmove = source.getVolatile('lockedmove');
+				if (lockedmove && source.volatiles['lockedmove'].duration === 2) {
+					delete source.volatiles['lockedmove'];
+				}
+				return this.NOT_FAIL;
+			}
+		},
+		onSourceModifyDamage(damage, source, target, move) {
+			if (move.category === 'Special') return this.chainModify(0.25);
+		},
+	},
+
+	/** Ice Slick: a slippery hazard that bites on the newcomer's first attack. */
+	fakemoniceslick: {
+		name: 'fakemoniceslick',
+		onSideStart(side) {
+			this.add('-sidestart', side, 'Ice Slick');
+		},
+		onEntryHazard(pokemon) {
+			if (!pokemon.isGrounded()) return;
+			this.boost({ spe: -1 }, pokemon, pokemon, this.dex.conditions.get('fakemoniceslick'));
+			pokemon.addVolatile('fakemonicysoles');
+		},
+		onSideEnd(side) {
+			this.add('-sideend', side, 'Ice Slick');
+		},
+	},
+
+	/** The per-Pokemon half of Ice Slick: its first attack slips. */
+	fakemonicysoles: {
+		name: 'fakemonicysoles',
+		noCopy: true,
+		onAfterMove(pokemon, target, move) {
+			if (move.category === 'Status') return;
+			this.damage(pokemon.baseMaxhp / 10, pokemon, pokemon,
+				this.dex.conditions.get('fakemoniceslick'));
+			pokemon.removeVolatile('fakemonicysoles');
+		},
+	},
+
+	/** Grapple: neither side can reach for a status move. */
+	fakemonstatuslock: {
+		name: 'fakemonstatuslock',
+		duration: 3,
+		onStart(pokemon) {
+			this.add('-start', pokemon, 'Grapple');
+		},
+		onDisableMove(pokemon) {
+			for (const slot of pokemon.moveSlots) {
+				if (this.dex.moves.get(slot.move).category === 'Status') pokemon.disableMove(slot.id);
+			}
+		},
+		onBeforeMovePriority: 5,
+		onBeforeMove(pokemon, target, move) {
+			if (move.category === 'Status') {
+				this.add('cant', pokemon, 'move: Grapple', move);
+				return false;
+			}
+		},
+		onEnd(pokemon) {
+			this.add('-end', pokemon, 'Grapple');
 		},
 	},
 

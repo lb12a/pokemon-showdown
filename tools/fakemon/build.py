@@ -253,8 +253,113 @@ def emit_secondary(sec, indent=2):
     return '{ ' + ', '.join(parts) + ' }'
 
 
+# --------------------------------------------------------------------------
+# Move targets
+# --------------------------------------------------------------------------
+# The generic rule - "a Status move that does not boost anybody else targets
+# itself" - is right for buffs and shields, but it silently breaks every move
+# whose written effect has to reach somebody else: the move resolves against
+# the user, so disabling, trapping, type changes and forced switches all hit
+# the wrong Pokemon or do nothing at all. `resolve_target` fixes the structural
+# cases automatically and `TARGET_FIXUPS` names the moves whose effect text
+# disagrees with the generic rule.
+TARGET_FIXUPS = {
+    # status moves whose effect text names the opponent
+    'blankstare': "'normal'", 'routinecheck': "'normal'", 'boringlecture': "'normal'",
+    'equalize': "'normal'", 'smolder': "'normal'", 'rootbind': "'normal'",
+    'sparringmatch': "'normal'", 'grapple': "'normal'", 'contaminate': "'normal'",
+    'quicksand': "'normal'", 'mudpit': "'normal'", 'memorywipe': "'normal'",
+    'mindread': "'normal'", 'pheromonecloud': "'normal'", 'webtrap': "'normal'",
+    'fossilize': "'normal'", 'possession': "'normal'", 'spiritlink': "'normal'",
+    'possess': "'normal'", 'voodoodoll': "'normal'", 'shadownet': "'normal'",
+    'deception': "'normal'", 'falsepromise': "'normal'", 'pixiedust': "'normal'",
+    'enchantment': "'normal'", 'magicwand': "'normal'", 'glamour': "'normal'",
+    'submissionhold': "'normal'", 'rust': "'normal'", 'algaebloom': "'normal'",
+    # a heal aimed at "the target" is aimed at the team, not at the opponent
+    'nectarheal': "'adjacentAllyOrSelf'",
+    # "Ignores effects of the target's weight-based moves" is a self buff
+    'floodrush': "'self'",
+}
+
+
+def resolve_target(move, spec):
+    """The target a move really needs, not the one the generic rule guesses."""
+    move_id = toID(move['name'])
+    if move_id in TARGET_FIXUPS:
+        return TARGET_FIXUPS[move_id]
+    if spec.fields.get('target'):
+        return spec.fields['target']
+    f = spec.fields
+    if f.get('onHitField'):
+        return "'all'"          # onHitField only runs for a field-wide target
+    if f.get('forceSwitch'):
+        return "'normal'"       # you cannot force yourself out
+    if move['category'] == 'Status' and (f.get('weather') or f.get('pseudoWeather') or
+                                         f.get('terrain')):
+        return "'all'"
+    if move['category'] != 'Status' or spec.target_boosts or f.get('status'):
+        return "'normal'"
+    return "'self'"
+
+
+# --------------------------------------------------------------------------
+# Effect-text coverage
+# --------------------------------------------------------------------------
+# `spec.unmatched` only says whether *some* rule fired. A sentence like
+# "Eliminates all Terrains, paralyzes all grounded targets" used to compile the
+# first half and drop the second, which shipped a move that only did half of
+# what it says. This measures how much of each effect string the rules actually
+# consumed, so those half-implemented moves are visible.
+COVERAGE_FILLER = {
+    'and', 'the', 'for', 'with', 'that', 'this', 'its', 'their', 'them', 'also',
+    'per', 'turn', 'turns', 'all', 'any', 'when', 'while', 'from', 'into', 'has',
+    'have', 'are', 'was', 'but', 'not', 'may', 'can', 'each', 'every', 'used',
+    'user', 'target', 'move', 'moves', 'pokemon', 'pok', 'mon', 'damage', 'hit',
+    'hits', 'stat', 'stage', 'stages', 'chance', 'effect', 'effects',
+}
+
+# Text that is deliberately not compiled, with the reason.
+COVERAGE_ALLOWLIST = {
+    'Magma Geyser': 'no semi-invulnerable moves in this game (Dive/Dig)',
+    'Mystic Sword': 'the parenthetical repeats overrideOffensiveStat',
+    'Telepathic Blast': 'the parenthetical repeats overrideOffensiveStat',
+    'Marble Roll': 'the parenthetical repeats the weight-ignoring volatile',
+    'Routine Strike': 'the cap is already in the basePowerCallback',
+    'Gust Blade': 'the screen list repeats "Ignores Reflect"',
+    'Aura Wave': 'the screen list repeats "Bypasses screens"',
+    'Fault Breaker': 'the parenthetical lists the rooms it already clears',
+    'Possession': 'Encore is the closest engine mechanic to "controls its move"',
+    'Ice Slick': 'the recoil and Speed drop live in the fakemoniceslick condition',
+    'Icicle Barrier': 'Spiky Shield already is the 1/8 contact punish',
+    'Fae Shield': 'Magic Coat already is the status-move reflection',
+    'Aero Shield': 'the 1/4 special damage lives in the fakemonaeroshield condition',
+    'Vandalize': 'the hazard sweep is in the compiled onAfterHit',
+}
+
+
+def effect_text_gaps(move):
+    """Words of a move's effect text that no rule consumed."""
+    text = (move.get('effect') or '').strip()
+    if not text or text.lower().startswith('no additional effect'):
+        return []
+    covered = [False] * len(text)
+    taken = []
+    for regex, _fn in effects.RULES:
+        for m in regex.finditer(text):
+            if any(m.start() >= a and m.end() <= b for a, b in taken):
+                continue
+            taken.append((m.start(), m.end()))
+    for a, b in taken:
+        for i in range(a, b):
+            covered[i] = True
+    leftover = ''.join(' ' if covered[i] else c for i, c in enumerate(text))
+    words = [w for w in re.split(r'[^A-Za-z0-9%/-]+', leftover) if len(w) > 2]
+    return [w for w in words if w.lower() not in COVERAGE_FILLER]
+
+
 def build_move(num, move, source):
     spec = effects.compile_effect(move, move.get('effect'))
+    spec.fields['target'] = resolve_target(move, spec)
     name = move['name']
     fields = {}
     fields['num'] = num
@@ -301,9 +406,11 @@ def build_move(num, move, source):
         if key in spec.fields:
             fields[key] = spec.fields[key]
     if spec.self_boosts:
-        if move['category'] == 'Status' and not spec.target_boosts:
+        # `boosts` applies to whoever the move targets, so a self-buff can only
+        # go there when the move actually targets the user.
+        if (move['category'] == 'Status' and not spec.target_boosts and
+                spec.fields['target'] == "'self'"):
             fields['boosts'] = ts_value(spec.self_boosts)
-            fields.setdefault('target', "'self'")
         else:
             existing = fields.get('self')
             if existing:
@@ -328,10 +435,12 @@ def build_move(num, move, source):
                                      ',\n\t]')
     # `secondary: null` is not part of MoveData; the field is simply omitted.
 
-    fields.setdefault('target', "'normal'" if move['category'] != 'Status' or
-                      spec.target_boosts or fields.get('status') else "'self'")
-    if spec.fields.get('target'):
-        fields['target'] = spec.fields['target']
+    # `onAfterHit` only fires for moves that actually dealt damage, so on a
+    # Status move it would be dead code - run the same body from `onHit`.
+    if move['category'] == 'Status' and 'onAfterHit' in fields and 'onHit' not in fields:
+        fields['onHit'] = fields.pop('onAfterHit')
+
+    fields['target'] = spec.fields['target']
     fields['type'] = f'"{move["type"]}"'
     fields['contestType'] = '"Cool"'
     fields['desc'] = json.dumps(move.get('effect') or 'No additional effect.')
@@ -605,7 +714,7 @@ def main():
     seen = {}
     generic = []
     num = 1
-    report = {'moves': 0, 'unmatchedEffects': []}
+    report = {'moves': 0, 'unmatchedEffects': [], 'partialEffects': []}
     weight_moves = []
     for source in ('pdf', 'xlsx'):
         for raw in moves_raw[source]:
@@ -616,6 +725,9 @@ def main():
             fields, spec = build_move(num, raw, source)
             if spec.unmatched and raw.get('effect'):
                 report['unmatchedEffects'].append(raw['name'])
+            gaps = effect_text_gaps(raw)
+            if len(gaps) >= 3 and raw['name'] not in COVERAGE_ALLOWLIST:
+                report['partialEffects'].append(f"{raw['name']}: {' '.join(gaps[:10])}")
             if 'getWeight' in str(fields.get('basePowerCallback', '')):
                 weight_moves.append(mid)
             generic.append((mid, fields, raw))
@@ -724,6 +836,10 @@ def main():
           f"learnsets={len(learnsets)}")
     if report['unmatchedEffects']:
         print('UNCOMPILED EFFECTS:', report['unmatchedEffects'])
+    if report['partialEffects']:
+        print('PARTIALLY COMPILED EFFECTS:')
+        for line in report['partialEffects']:
+            print('  -', line)
 
 
 if __name__ == '__main__':

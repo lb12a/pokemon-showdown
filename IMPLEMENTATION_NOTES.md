@@ -11,16 +11,24 @@ Showdown data is not available to players in any way.
 | `FakemonFinishedDex.pdf` (96 pages) | 158 Pokémon + 20 Mega formes, 171 signature moves, 166 abilities, 20 Mega abilities |
 | `DOC-20260902-WA0010.pdf` ("Massive Erweiterung") | 390 moves (50 Normal + 20 per type) |
 | `pokemon_custom_moves_340_damage_model.xlsx` | 340 further moves, fully structured, plus the damage model |
+| `Pokemon_Food_Items.xlsx` | 50 held food items |
+| `New_Unique_Consumable_Items.xlsx` | 50 single-use consumables |
+| `Non_Food_Battle_Items.xlsx` | 50 battle items |
+| `Final_Permanent_Held_Items.xlsx` | 50 permanent held items |
 
 ---
 
 ## 1. What is in the game now
 
 ```
-158 Pokémon (178 dex entries, including 20 Mega formes)
-884 moves    (171 of them signature moves from the dex PDF)
+158 Pokémon  (178 dex entries, including 20 Mega formes)
+884 moves     (171 of them signature moves from the dex PDF)
 186 abilities (166 normal + 20 Mega abilities)
-40 items     (20 Mega Stones + 10 food items + 10 utility items)
+240 items     (20 Mega Stones + 20 core items + the four item spreadsheets)
+                50 food items        (Pokemon_Food_Items)
+                50 consumables       (New_Unique_Consumable_Items)
+                50 battle items      (Non_Food_Battle_Items)
+                50 permanent items   (Final_Permanent_Held_Items)
 ```
 
 `node tools/fakemon/check.js` prints this report and validates the whole dex.
@@ -85,8 +93,15 @@ Rebuilt in `data/mods/fakemon/scripts.ts` (`actions.canMegaEvo` / `runMegaEvo`).
   which is worth **exactly +100 BST** and carries the **Mega ability**. The
   +100 never touches HP, so the HP bar cannot desync mid-battle.
 
-Both paths, the +20/+100 totals, the ability switch and the once-per-battle rule
-are covered by tests in `test/sim/fakemon/system.js`.
+A Pokémon that *has* its own Mega forme still only reaches it while it is
+actually holding its own stone. Without the stone it takes the ordinary route
+like everybody else: +20 to all six stats, same species, same ability, same
+typing — it never turns into the `-Mega` forme. Holding somebody else's stone is
+the same as holding none.
+
+Both paths, the +20/+100 totals, the "has a Mega forme but no stone" case, the
+ability switch and the once-per-battle rule are covered by tests in
+`test/sim/fakemon/system.js`.
 
 ## 5. New battle effects
 
@@ -102,6 +117,61 @@ are covered by tests in `test/sim/fakemon/system.js`.
   Speed/Healing relays, Ground Ward, Thermal Draft, Special Mirror
 * **Volatiles** — ~25 more, including the Mega marker, the consecutive-use
   counter, braces, contact-punish coats, bleed and scorch effects
+
+## 5a. Items
+
+`data/mods/fakemon/items.ts` is the index; the four spreadsheets each get their
+own module so a file can be re-imported on its own:
+
+| file | source spreadsheet | count |
+| --- | --- | --- |
+| `items-food.ts` | `Pokemon_Food_Items` | 50 |
+| `items-consumables.ts` | `New_Unique_Consumable_Items` | 50 |
+| `items-battle.ts` | `Non_Food_Battle_Items` | 50 |
+| `items-permanent.ts` | `Final_Permanent_Held_Items` | 50 |
+
+`item-helpers.ts` holds the shared vocabulary the spreadsheets keep using —
+"rolling", "cutting", "kicking", "pulse", "weight-based" moves, and the
+"extend this effect by N turns, once" helper — so every item that mentions the
+same concept behaves identically.
+
+Every item is a real battle effect, never a description: food and consumables
+are eaten with `eatItem` (so Nibble, Evergreen Cud, Itemfinder, Sugar Rush and
+Nectar Dash all see them — `FOOD_ITEMS` is now built from the two edible tables
+automatically), battle and permanent gear hook the damage, accuracy, priority,
+status and field events.
+
+Seven items needed new conditions, which live in `conditions.ts` §5:
+`fakemonitemabilitylock` (Malware-Bait Truffle, drives Gastro Acid for 3 turns),
+`fakemonitemlock` (EMP Grenade, keeps Embargo topped up), `fakemonpriorityrush`
+(Adrenaline Cold-Brew), `fakemonflinchguard` (Peppermint Crunch-Bar),
+`fakemonheavyload` (Sweet Potato-Pie), `fakemonsecondaryward` (Sun-Baked
+Kernel), `fakemongroundguard` (Feather-Grass Tuft), `fakemonhazardward`
+(Encryption Key / Spring-Loaded Boots) and the `fakemonwelcomeheal` side
+condition (Cinnamon Roll-Knot).
+
+Where a spreadsheet line described something the engine has no primitive for,
+the closest real mechanic was used and the choice is written in the item's
+`desc`:
+
+* **Quantum Core** — "reverses turn priority inside a Room for the holder". The
+  engine applies Trick Room globally in `getActionSpeed`, with no per-Pokémon
+  exemption, so the holder instead moves first inside its priority bracket while
+  a Room is up.
+* **Twilight Hourglass** — weather and terrain set while the holder is out last
+  one turn longer (once per instance); Rooms are extended when it switches in.
+* **Proxy-Router Core** — bounces one reflectable status move at a random foe,
+  the same mechanic Magic Coat uses.
+* **Counter-Weight Weights** — the engine has no weight-tier comparison to
+  reverse, so weight-based moves hit 25% harder from the holder and 25% softer
+  at it.
+* **Briny Kelp-Wrap** — "switches out via a move" is not distinguishable from a
+  manual switch at the point the heal has to happen, so it heals on any
+  switch-out.
+
+The team builder groups the item picker by these families (`<optgroup>`), so the
+240-item list stays readable; the grouping comes from the client data bundle,
+which `tools/fakemon/export-client.js` tags per source file.
 
 ## 6. Bot
 
@@ -247,6 +317,36 @@ play from the first click to a winner with zero JavaScript errors.
 * **Balance is a first pass.** The data check flags no broken combinations, but
   884 moves have not been playtested against each other.
 
+## 9b. The calculation audit
+
+After the items went in, everything was checked for effects that *look*
+implemented but never actually run. Two harnesses did the work:
+
+* a **coverage harness** that wraps every ability/item/move handler, then builds
+  a battle designed to trigger each one and reports the ones that never fire;
+* an **effect-text coverage report** in `tools/fakemon/build.py`, which measures
+  how much of each written effect the compiler rules actually consumed. A
+  sentence like *"Eliminates all Terrains, paralyzes all grounded targets"* used
+  to compile its first half and silently drop the second.
+
+What it found and what was fixed:
+
+| problem | effect | fix |
+| --- | --- | --- |
+| 30 status moves targeted `'self'` although their text names the opponent (Blank Stare, Rust, Enchantment, Fossilize, Mind Read, Deception, Contaminate, Quicksand, Web Trap, …) | the move resolved against its own user, so disabling, trapping, type changes and ability swaps hit the wrong Pokémon or did nothing | `resolve_target()` + `TARGET_FIXUPS` in `build.py`; self-boosts move into `self: { boosts }` when the target changes |
+| 3 force-switch moves (Reset Roar, Warrior's Roar, Fear Monger) targeted `'self'` | they switched *the user* out | structural rule: `forceSwitch` ⇒ `target: 'normal'` |
+| Grid Overload's `onHitField` with `target: 'self'` | the move did nothing at all | structural rule: `onHitField` ⇒ `target: 'all'`, plus the missing paralysis clause |
+| 3 status moves used `onAfterHit` | `onAfterHit` only runs for moves that dealt damage, so it was dead code | `build.py` rewrites it to `onHit` on status moves |
+| `needlejabready` and `barbedcounterhit` were deleted by the data purge | Needle Jab never retaliated and Barbed Counter never hit back | the purge now keeps moves tagged `isNonstandard: 'Custom'` |
+| Needle Jab's `needlejabused` marker was never cleared | it retaliated once per *battle* instead of once per turn | the ready state removes the marker when it ends |
+| Antenna Pulse read `move` from its own `onModifyPriority` | crash: a move's own priority event is fired by `singleEvent`, which passes no move | look the move up instead |
+| Equalize wrote one `-sethp` line for two Pokémon | crash: "Multiple sides passed to add" | two protocol lines, like Pain Split |
+| ~20 moves had a second clause nobody compiled (Freeze Dry Burst's Water weakness, Iron Drill's boost-ignoring, Dragon's Blood's stat drop, Sap Drain's boost theft, Rust's type removal, Deep Breath's priority, Ice Slick's hazard, Aero Shield's ¼ special damage, …) | half-implemented moves | 24 new rules in `effects.py` and 8 new conditions |
+
+The coverage harness now fires a handler for **every** ability, item and move
+except `Electic Gnaw`, which needs the target to be holding a food item, and it
+runs 240 items × 3 seeds × 14 turns with zero crashes.
+
 ## 10. Files changed and added
 
 **New**
@@ -257,7 +357,12 @@ data/mods/fakemon/            the whole custom game
   pokedex.ts moves.ts learnsets.ts formats-data.ts   (wrappers)
   moves-signature.ts          171 hand-implemented signature moves
   abilities.ts                186 hand-implemented abilities
-  items.ts                    40 items incl. Mega Stones
+  items.ts                    index: Mega Stones, core food, utility items
+  items-food.ts               50 food items      (Pokemon_Food_Items)
+  items-consumables.ts        50 consumables     (New_Unique_Consumable_Items)
+  items-battle.ts             50 battle items    (Non_Food_Battle_Items)
+  items-permanent.ts          50 permanent items (Final_Permanent_Held_Items)
+  item-helpers.ts             the shared move-family vocabulary the items use
   conditions.ts               new weather, rooms, fields, volatiles
   rulesets.ts                 Fakemon Standard + mechanics bookkeeping
   bot.ts                      the AI
@@ -294,7 +399,8 @@ test/sim/data.js       exempt the fakemon mod from the "no imports" rule,
 ```bash
 node build                       # compile
 node tools/fakemon/check.js      # data + balance report (0 errors)
-npx mocha test/sim/fakemon/system.js   # the suite (runs everything: 2399 tests)
+npx mocha                        # the suite (runs everything: 2417 tests)
+python3 tools/fakemon/build.py   # regenerate + report uncompiled effect text
 npx eslint                       # clean
 npx tsc --noEmit                 # clean
 node tools/fakemon/export-client.js    # client data for the Teambuilder
