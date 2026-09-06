@@ -13,9 +13,12 @@ Pokémon Showdown
 > * [DATA_GUIDE.md](./DATA_GUIDE.md) — how to add your own Pokémon, moves, abilities, items and Mega Stones
 > * [assets/README.md](./assets/README.md) — how to replace the placeholder art
 >
-> **Getting started**
+> **Getting started** — everything lives on the branch
+> `claude/pokemon-showdown-custom-system-eszso4`; `master` is unmodified
+> Pokémon Showdown.
 >
 > ```bash
+> git checkout claude/pokemon-showdown-custom-system-eszso4
 > node build
 > node pokemon-showdown start --no-security
 > ```

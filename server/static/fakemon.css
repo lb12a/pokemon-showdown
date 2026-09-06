@@ -218,3 +218,10 @@ main { padding: 18px; max-width: 1200px; margin: 0 auto; }
 .rewards table { border-collapse: collapse; width: 100%; font-size: 12px; }
 .rewards th, .rewards td { text-align: left; padding: 3px 8px 3px 0; }
 .rewards th { color: var(--muted); font-weight: 600; }
+
+#build-stamp {
+	font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+	color: var(--muted);
+	margin-right: 12px;
+	opacity: .75;
+}

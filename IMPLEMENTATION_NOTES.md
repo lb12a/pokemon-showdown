@@ -625,6 +625,24 @@ test/sim/data.js       exempt the fakemon mod from the "no imports" rule,
 .gitignore             allow config/custom-formats.ts, ignore dist-client
 ```
 
+## 10a. Which build am I running?
+
+`node build` stamps the checkout into the client bundle, and the client prints
+it in the top bar:
+
+```
+claude/pokemon-showdown-custom-system-eszso4 @ 8524a9b3 · built 2026-09-06 19:09
+```
+
+`/fakemonversion` answers the same question from the server side, listing the
+data counts and the effect setters. And the client's own files are served with
+`cacheTime: 0`, because an hour-old `index.html` or `fakemon-data.js` makes a
+fresh pull look like nothing changed at all.
+
+This matters because **every commit of this project lives on the branch
+`claude/pokemon-showdown-custom-system-eszso4`**. `master` is untouched
+upstream Showdown, so a `git pull` there brings back nothing.
+
 ## 11. Verifying it
 
 ```bash

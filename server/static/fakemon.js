@@ -521,6 +521,11 @@ const UI = {
 		$('#team-import-new').onclick = () => this.importPort(true);
 		$('#dex-search').oninput = () => this.renderDex();
 
+		// Which checkout this page was built from, so a stale build is obvious.
+		const build = D.build || {};
+		$('#build-stamp').textContent =
+			`${build.branch || '?'} @ ${build.commit || '?'} · built ${build.time || '?'}`;
+
 		this.renderTeams();
 		this.refreshTeamPickers();
 		this.renderDex();

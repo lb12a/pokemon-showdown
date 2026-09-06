@@ -132,6 +132,38 @@ function itemGroup(id, entry) {
 	return ITEM_GROUPS.get(id) || 'Core';
 }
 
+/**
+ * Which checkout this data was built from.
+ *
+ * `node build` regenerates the client bundle, so stamping the commit into it is
+ * what makes "did my pull and my build actually arrive?" answerable at a
+ * glance - the client prints it in the top bar.
+ */
+function buildStamp() {
+	const gitDir = path.join(ROOT, '.git');
+	const stamp = { branch: 'unknown', commit: 'unknown', time: new Date().toISOString().slice(0, 16).replace('T', ' ') };
+	try {
+		const head = fs.readFileSync(path.join(gitDir, 'HEAD'), 'utf8').trim();
+		const ref = head.startsWith('ref: ') ? head.slice(5) : '';
+		stamp.branch = ref ? ref.replace('refs/heads/', '') : 'detached';
+		let commit = ref ? '' : head;
+		if (ref) {
+			try {
+				commit = fs.readFileSync(path.join(gitDir, ref), 'utf8').trim();
+			} catch {
+				// A freshly cloned repo keeps its refs in packed-refs instead.
+				const packed = fs.readFileSync(path.join(gitDir, 'packed-refs'), 'utf8');
+				const line = packed.split('\n').find(row => row.endsWith(` ${ref}`));
+				commit = line ? line.split(' ')[0] : '';
+			}
+		}
+		if (commit) stamp.commit = commit.slice(0, 8);
+	} catch {
+		// Not a git checkout; the timestamp alone still says when it was built.
+	}
+	return stamp;
+}
+
 function buildStaticClientData() {
 	const dex = Dex.mod('fakemon');
 	dex.includeData();
@@ -194,6 +226,7 @@ function buildStaticClientData() {
 	}
 
 	const bundle = {
+		build: buildStamp(),
 		pokedex, moves, abilities, items, learnsets,
 		typechart: dex.data.TypeChart,
 		megas: index.megas,

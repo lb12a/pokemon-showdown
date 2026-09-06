@@ -53,15 +53,75 @@ git clone https://github.com/lb12a/pokemon-showdown.git
 cd pokemon-showdown
 git checkout claude/pokemon-showdown-custom-system-eszso4
 npm install
+node build
 ```
+
+Der `git checkout` ist **nicht optional**: ohne ihn landest du auf `master`,
+und dort ist von diesem Projekt nichts drin.
 
 ---
 
-## 1. Holen und starten
+## 0b. Bist du überhaupt auf dem richtigen Stand?
 
-Immer **im Ordner `pokemon-showdown`**:
+**Das ist mit Abstand die häufigste Ursache dafür, dass „nichts neu aussieht".**
+Die ganze Arbeit liegt auf dem Branch
+`claude/pokemon-showdown-custom-system-eszso4`, **nicht** auf `master`.
+Auf `master` liegt das unveränderte, ganz normale Pokémon Showdown.
+
+Prüfen, auf welchem Branch du bist:
 
 ```powershell
+git branch --show-current
+```
+
+Kommt da `master` (oder gar nichts), dann hol dir den richtigen Branch:
+
+```powershell
+git fetch origin
+git checkout claude/pokemon-showdown-custom-system-eszso4
+git pull
+node build
+```
+
+**Der schnellste Test, ob wirklich der neue Stand läuft:** oben rechts im
+Client steht jetzt eine kleine Zeile wie
+
+```
+claude/pokemon-showdown-custom-system-eszso4 @ 8524a9b3 · built 2026-09-06 19:09
+```
+
+Steht dort etwas anderes — oder gar nichts —, läuft ein alter Stand. Im Chat
+geht es auch:
+
+```
+/fakemonversion
+```
+
+Das antwortet mit der Anzahl Pokémon, Attacken, Items und Fähigkeiten und mit
+der Liste der Effekt-Attacken. Steht dort „none - this is an old build", ist es
+ein alter Stand.
+
+**Zweithäufigste Ursache: der Browser-Cache.** Nach jedem `node build` die
+Seite mit **Strg+F5** neu laden. (Der Server schickt seine Client-Dateien
+inzwischen mit `Cache-Control: max-age=0`, damit genau das nicht mehr passiert
+— aber eine Seite, die noch aus der alten Sitzung offen ist, muss trotzdem
+einmal hart neu geladen werden.)
+
+**Wenn `git pull` meckert**, weil du lokal etwas geändert hast:
+
+```powershell
+git stash
+git pull
+git stash pop
+```
+
+## 1. Holen und starten
+
+Immer **im Ordner `pokemon-showdown`** und auf dem richtigen Branch (siehe
+Abschnitt 0b):
+
+```powershell
+git checkout claude/pokemon-showdown-custom-system-eszso4
 git pull
 node build
 node pokemon-showdown start --no-security
@@ -284,6 +344,12 @@ Der letzte Befehl muss `ERRORS: 0` sagen — er meckert auch, wenn du dich
 vertippt hast (`unknown ability "Slowmofli"`).
 
 ## 5. Wenn etwas nicht stimmt
+
+**Es sieht alles aus wie vorher / neue Sachen fehlen**
+→ Fast immer der falsche Branch. Siehe Abschnitt 0b: `git branch --show-current`
+muss `claude/pokemon-showdown-custom-system-eszso4` sagen. Danach `node build`
+und **Strg+F5**. Die Zeile oben rechts im Client verrät dir sofort, welcher
+Stand wirklich läuft.
 
 **Es erscheinen alte Pokémon oder alte Items im Teambuilder**
 → `node build` noch einmal laufen lassen, dann die Seite mit **Strg+F5**

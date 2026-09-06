@@ -187,6 +187,24 @@ export const commands: Chat.ChatCommands = {
 		`Example: /fakemonbot doubles, ShadowMaster, random, hard`,
 	],
 
+	fakemonversion(target, room, user) {
+		// The quickest answer to "is the server actually running the new code?".
+		const index = FakemonIndex as AnyObject;
+		const dex = Dex.mod('fakemon');
+		dex.includeData();
+		this.sendReplyBox(
+			`<strong>Fakemon build</strong><br />` +
+			`${Object.keys(dex.data.Pokedex).length} Pok&eacute;mon, ` +
+			`${Object.keys(dex.data.Moves).length} moves, ` +
+			`${Object.keys(dex.data.Items).length} items, ` +
+			`${Object.keys(dex.data.Abilities).length - 1} abilities<br />` +
+			`Effect setters: ${(index.effectMoves || []).length ? (index.effectMoves as string[]).join(', ') : 'none - this is an old build'}`
+		);
+	},
+	fakemonversionhelp: [
+		`/fakemonversion - What data this server is actually running, to check a rebuild arrived.`,
+	],
+
 	fakemonchallenge(target, room, user) {
 		this.checkChat();
 		const [rawTarget, rawFormat] = target.split(',').map(part => part.trim());

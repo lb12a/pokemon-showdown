@@ -340,7 +340,10 @@ export class ServerStream extends Streams.ObjectReadWriteStream<string> {
 			const roomidRegex = /^\/(?:[A-Za-z0-9][A-Za-z0-9-]*)\/?$/;
 			const cssServer = new StaticServer('./config');
 			const avatarServer = new StaticServer('./config/avatars');
-			const staticServer = new StaticServer('./server/static');
+			// The custom client is rebuilt by `node build`, so it must never be
+			// cached: an hour-old index.html or fakemon-data.js makes a fresh
+			// pull look like nothing changed at all.
+			const staticServer = new StaticServer('./server/static', { cacheTime: 0 });
 			// Artwork for the custom game; see assets/README.md.
 			const assetServer = new StaticServer('./assets');
 			const staticRequestHandler = (req: http.IncomingMessage, res: http.ServerResponse) => {
