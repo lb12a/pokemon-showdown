@@ -8,6 +8,7 @@ Pokémon Showdown
 > It runs 158 custom Pokémon, 884 custom moves, 186 custom abilities and its own
 > Mega Evolution rules instead.
 >
+> * [ANLEITUNG.md](./ANLEITUNG.md) — **Anleitung auf Deutsch**: Ordner finden, starten, testen
 > * [IMPLEMENTATION_NOTES.md](./IMPLEMENTATION_NOTES.md) — what was built and why
 > * [DATA_GUIDE.md](./DATA_GUIDE.md) — how to add your own Pokémon, moves, abilities, items and Mega Stones
 > * [assets/README.md](./assets/README.md) — how to replace the placeholder art

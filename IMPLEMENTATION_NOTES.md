@@ -409,6 +409,9 @@ node tools/fakemon/export-client.js    # client data for the Teambuilder
 Then start the server and open **http://localhost:8000** in a browser - that is
 the custom client, no external site involved.
 
+A step-by-step version of this in German, including how to find the project
+folder again on Windows, is in [`ANLEITUNG.md`](ANLEITUNG.md).
+
 The chat commands still work if you prefer typing:
 
 ```
