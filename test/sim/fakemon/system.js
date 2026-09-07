@@ -452,7 +452,7 @@ describe('Fakemon: sets and trapping', () => {
 		for (const level of [1, 5, 50, 100]) {
 			const set = {
 				...sample(), species: 'Hallowisp', level,
-				evs: { hp: 5, atk: 252, def: 0, spa: 0, spd: 0, spe: 252 },
+				evs: { hp: 4, atk: 252, def: 0, spa: 0, spd: 0, spe: 252 },
 			};
 			set.ability = dex.species.get('Hallowisp').abilities[0];
 			set.moves = Object.keys(dex.species.getLearnsetData('hallowisp').learnset).slice(0, 2);
@@ -470,8 +470,8 @@ describe('Fakemon: sets and trapping', () => {
 	});
 
 	it('should accept the 508 EVs the team builder allows', () => {
-		// The builder caps at 252 per stat and 508 in total; the server's own
-		// limit is 510, so anything the builder produces has to pass here.
+		// The builder caps at 252 per stat and 508 in total, and the format is
+		// set to the same cap, so anything the builder produces has to pass.
 		const set = { ...sample(), evs: { hp: 4, atk: 252, def: 0, spa: 0, spd: 0, spe: 252 } };
 		assert.equal(validator().validateTeam([set]), null);
 	});
@@ -987,6 +987,95 @@ describe('Fakemon: team validation', () => {
 	it('should accept the right Mega Stone', () => {
 		assert.equal(validator.validateTeam(set({ item: 'Hallowispite' })), null);
 	});
+
+	// Every one of these is a legal team that Showdown's "you probably made an
+	// import mistake" guesses used to refuse, which silently stopped the battle
+	// from starting. A new Pokemon in the team builder starts on 0 EVs, so this
+	// was the normal case, not an edge case.
+	it('should accept a Pokemon with no EVs at all', () => {
+		const problems = validator.validateTeam(set({
+			evs: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+		}));
+		assert.equal(problems, null, `0 EVs must be legal, got: ${problems}`);
+	});
+
+	it('should accept a level 50 Pokemon with a round EV total', () => {
+		const problems = validator.validateTeam(set({
+			level: 50, evs: { hp: 0, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 },
+		}));
+		assert.equal(problems, null, `a level 50 set must be legal, got: ${problems}`);
+	});
+
+	it('should accept every level from 1 to 100 with an untouched spread', () => {
+		for (let level = 1; level <= 100; level++) {
+			const problems = validator.validateTeam(set({
+				level, evs: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+			}));
+			assert.equal(problems, null, `level ${level} must be legal, got: ${problems}`);
+		}
+	});
+
+	it('should accept exactly 508 EVs and reject 509', () => {
+		assert.equal(validator.validateTeam(set({
+			evs: { hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 },
+		})), null);
+		const problems = validator.validateTeam(set({
+			evs: { hp: 5, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 },
+		}));
+		assert(problems && problems.length, '509 EVs must be over the limit');
+	});
+
+	it('should accept a one-Pokemon team in singles', () => {
+		assert.equal(validator.validateTeam(set({})), null);
+	});
+
+	it('should still need two Pokemon for doubles', () => {
+		const problems = TeamValidator.get('fakemondoubles').validateTeam(set({}));
+		assert(problems && problems.length, 'doubles needs two Pokemon');
+	});
+
+	it('should accept the example team the bot used to refuse', () => {
+		// Reported as "the bot sometimes will not battle when I give it a team".
+		// Tigraith has no EVs at all, which is what the team builder produces.
+		const team = Teams.import([
+			'Illusheep',
+			'Ability: Misfortune',
+			'EVs: 252 Spe',
+			'Hasty Nature',
+			'IVs: 0 HP / 0 Atk / 0 Def / 0 SpA / 0 SpD',
+			'- Fake Fluff',
+			'',
+			'Tigraith (M)',
+			'Ability: Reckless',
+			'Serious Nature',
+			'- Aurora Curtain',
+			'',
+		].join('\n'));
+		assert.equal(team.length, 2);
+		const problems = validator.validateTeam(team);
+		assert.equal(problems, null, `this team must be able to battle, got: ${problems}`);
+	});
+
+	it('should accept every Pokemon with each of its abilities, unEVed', () => {
+		const refused = [];
+		for (const name of FakemonIndex.species) {
+			const species = dex.species.get(name);
+			if (!species.exists || species.battleOnly) continue;
+			const learnset = Object.keys(dex.species.getLearnsetData(species.id).learnset || {});
+			if (!learnset.length) continue;
+			for (const ability of Object.values(species.abilities)) {
+				const problems = validator.validateTeam([{
+					name: species.name, species: species.name, item: '', ability,
+					moves: learnset.slice(0, 1), nature: 'Serious', gender: '',
+					level: 100, shiny: false, happiness: 255,
+					evs: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 },
+					ivs: { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 },
+				}]);
+				if (problems) refused.push(`${species.name} (${ability}): ${problems.join(' ')}`);
+			}
+		}
+		assert.equal(refused.length, 0, `every buildable set must battle:\n${refused.slice(0, 5).join('\n')}`);
+	});
 });
 
 describe('Fakemon: built-in web client', () => {
@@ -1035,6 +1124,28 @@ describe('Fakemon: built-in web client', () => {
 		assert.false(/psim\.us|play\.pokemonshowdown\.com/.test(html),
 			'the served page must be our own client');
 	});
+
+	it('should have somewhere to put a refused battle next to the bot button', () => {
+		const html = fs.readFileSync(
+			path.resolve(__dirname, '../../../server/static/index.html'), 'utf8');
+		assert(html.includes('id="bot-status"'),
+			'the bot panel needs its own status line, or a refusal lands in another panel');
+		assert(html.indexOf('id="bot-status"') < html.indexOf('id="challenges"'),
+			'the bot status line belongs in the bot panel, above the friend panel');
+	});
+
+	it('should read the server replies that arrive as private messages', () => {
+		// A command sent outside a room is answered with `|pm| you|~|/error ...`.
+		// Dropping those is what made a refused battle look like nothing happening.
+		const client = fs.readFileSync(
+			path.resolve(__dirname, '../../../server/static/fakemon.js'), 'utf8');
+		assert(/\/\(error\|text\|raw\|html\)/.test(client),
+			'the client must read /error and /text replies');
+		assert(client.includes('serverProblem'), 'refusals need their own path');
+		for (const line of ["case '-fail'", "case '-miss'", "case '-notarget'"]) {
+			assert(client.includes(line), `the battle log must report ${line}`);
+		}
+	});
 });
 
 describe('Fakemon: random teams and the bot', () => {
@@ -1073,6 +1184,49 @@ describe('Fakemon: random teams and the bot', () => {
 		const result = await runBotBattle('[Fakemon] Random Doubles Battle', 'normal');
 		assert.equal(result.errors.length, 0, `bot made illegal choices: ${result.errors[0]}`);
 		assert(result.ended, 'the battle should finish');
+	});
+
+	it('should ignore a Pokemon that is not on the field', () => {
+		// A Mega reverting on the bench is reported without a slot letter
+		// ("p1: Fluffox"). Treating that as a position made the bot aim at slot
+		// "-47", and the battle stopped on an illegal choice.
+		const bot = new FakemonBot({ name: 'T', difficulty: 'normal', seed: [1, 2, 3, 4] });
+		bot.setSide('p2');
+		bot.observe('|switch|p1a: Illusheep|Illusheep, M|100/100');
+		bot.observe('|switch|p1b: Tigraith|Tigraith, M|100/100');
+		bot.observe('|detailschange|p1: Fluffox|Fluffox, F|[silent]');
+		bot.observe('|detailschange|p1b: Tigraith|Tigraith-Mega, M');
+		const positions = [...bot.foes.keys()];
+		assert.deepEqual(positions, ['p1a', 'p1b'], `only real slots are targets: ${positions}`);
+	});
+
+	it('should only ever aim at slots that exist', () => {
+		for (const difficulty of ['easy', 'normal', 'hard']) {
+			for (let seed = 0; seed < 6; seed++) {
+				const bot = new FakemonBot({ name: 'T', difficulty, seed: [seed, 2, 3, 4] });
+				bot.setSide('p2');
+				bot.observe('|switch|p1a: Illusheep|Illusheep, M|100/100');
+				bot.observe('|switch|p1b: Tigraith|Tigraith, M|100/100');
+				bot.observe('|detailschange|p1: Fluffox|Fluffox, F|[silent]');
+				const choice = bot.decide({
+					active: [{ moves: [{ id: 'shadowpulse', move: 'Shadow Pulse', target: 'normal', pp: 5, maxpp: 5 }] },
+						{ moves: [{ id: 'shadowpulse', move: 'Shadow Pulse', target: 'normal', pp: 5, maxpp: 5 }] }],
+					side: {
+						name: 'T', id: 'p2',
+						pokemon: [
+							{ ident: 'p2a: A', details: 'Coravira, M', condition: '100/100', active: true, moves: ['shadowpulse'] },
+							{ ident: 'p2b: B', details: 'Illusheep, M', condition: '100/100', active: true, moves: ['shadowpulse'] },
+						],
+					},
+				});
+				for (const part of choice.split(', ')) {
+					const target = /^move \d+ (-?\d+)/.exec(part);
+					if (!target) continue;
+					const slot = Number(target[1]);
+					assert(slot >= -3 && slot <= 3 && slot !== 0, `"${part}" aims at a slot that cannot exist`);
+				}
+			}
+		}
 	});
 });
 

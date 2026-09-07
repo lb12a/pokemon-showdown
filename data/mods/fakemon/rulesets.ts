@@ -51,10 +51,16 @@ export const Rulesets: import('../../../sim/dex-formats').ModdedFormatDataTable 
 		// that scripts.ts can tell them from the original ones); the original
 		// moves kept for their mechanics stay unusable because no Fakemon learns
 		// them and Obtainable Moves enforces learnsets.
+		//
+		// `Free Spreads` matters more here than it looks: a new Pokemon in the
+		// team builder starts on 0 EVs, and levels 1-100 are all normal, so
+		// Showdown's "you probably forgot to EV this" and "you probably pasted a
+		// level 50 set" guesses would reject perfectly ordinary teams.
+		// `EV Limit = 508` is the cap the team builder itself enforces.
 		ruleset: [
 			'Obtainable', '+tag:custom', 'Team Preview', 'Species Clause', 'Nickname Clause',
 			'OHKO Clause', 'HP Percentage Mod', 'Cancel Mod', 'Endless Battle Clause',
-			'Sleep Clause Mod',
+			'Sleep Clause Mod', 'Free Spreads', '!! EV Limit = 508',
 		],
 	},
 

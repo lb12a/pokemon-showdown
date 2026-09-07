@@ -643,6 +643,81 @@ SPECIES_FIXUPS = {
     # first stage of the line keeps it.
     'Pompash': {'abilities': {'0': 'Rooted', '1': 'Fresh Air'}},
     'Pompomble': {'abilities': {'0': 'Rooted', '1': 'Fresh Air'}},
+
+    # ---- hand-picked by the designer -----------------------------------
+    # These were first written straight into `generated/pokedex.ts`. They live
+    # here now so that regenerating does not throw them away: the generated file
+    # is an output, this table is the source. Add to it rather than editing the
+    # output, and `python3 tools/fakemon/build.py` will keep your choices.
+    # A change on a base forme is inherited by its formes, so fixing `Budpup`
+    # also fixes Budpup-Beagle and Budpup-Dalmatian.
+    # `'evos': None` removes an evolution link.
+    'Sprank': {'abilities': {'0': 'Cabinet Lock', '1': 'Cuttered Interior', 'H': 'Cabinet Lock'}},
+    'Eggbun': {'abilities': {'0': 'Eggshell'}},
+    'Bouncunny': {'abilities': {'0': 'Eggshell'}},
+    'Bunbombard': {'abilities': {'0': 'Eggshell', '1': 'Kamikaze'}},
+    'Borini': {'abilities': {'0': 'Fireproof', '1': 'Mudlover'}},
+    'Borosag': {'abilities': {'0': 'Fireproof', '1': 'Mudlover'}},
+    'Törnchen': {'abilities': {'0': 'Electric Teeth', '1': 'Crispy Charge'}},
+    'Elektörnchen': {'abilities': {'0': 'Electric Teeth', '1': 'Crispy Charge'}},
+    'Elevoltörnchen': {'abilities': {'0': 'Electric Teeth', '1': 'Crispy Charge'}},
+    'Elerolltörnchen': {'baseStats': {'hp': 94, 'atk': 56, 'def': 91, 'spa': 83, 'spd': 67, 'spe': 129}, 'abilities': {'0': 'Electric Teeth', '1': 'Crispy Charge', 'H': 'Electric Carousel'}},
+    'Eleblitörnchen': {'baseStats': {'hp': 94, 'atk': 56, 'def': 91, 'spa': 129, 'spd': 67, 'spe': 83}, 'abilities': {'0': 'Electric Teeth', '1': 'Crispy Charge', 'H': 'Thundertail'}},
+    'Draptrich': {'abilities': {'0': 'Counterweight', '1': 'Kaleidoscopic Veil', 'H': 'Mental Overwhelm'}},
+    'Slicantis': {'abilities': {'0': 'Dodge', '1': 'Executioner', 'H': 'Slicing Massacre'}},
+    'Slugon': {'abilities': {'0': 'Warm Body'}},
+    'Briccoloss': {'abilities': {'0': 'Brickwall', '1': 'Brick Core', 'H': 'Ruine'}},
+    'Bloomlet': {'abilities': {'0': 'Root Anchor'}},
+    'Florumble': {'abilities': {'0': 'Whac-A-Mole', '1': 'Timber Fall'}, 'evos': None},
+    'Cocobud': {'abilities': {'0': 'Refresh Aura', '1': 'Isotonic'}, 'evos': ['Cocobotan']},
+    'Cocobotan': {'abilities': {'0': 'Refresh Aura', '1': 'Isotonic', 'H': 'Hydro Mechanics'}, 'prevo': 'Cocobud'},
+    'Sproutshroom': {'abilities': {'0': 'Mycelium Growth'}},
+    'Shroomoo': {'abilities': {'0': 'Evergreen Cud', '1': 'Shelf Shroom Texture'}, 'evos': None},
+    'Shroofo': {'abilities': {'0': 'Telecinetic Cap', '1': 'Alien Spores'}},
+    'Shroomogaar': {'abilities': {'0': 'Burning Rage', '1': 'Toxic Envy'}, 'evos': ['Pilzogaar']},
+    'Pilzogaar': {'abilities': {'0': 'Burning Rage', '1': 'Toxic Envy'}, 'prevo': 'Shroomogaar'},
+    'Nibblarva': {'abilities': {'0': 'Nibble'}},
+    'Spincoon': {'abilities': {'0': 'Armored'}, 'evos': ['Metafly', 'Metafly-Fairy', 'Metafly-Fire', 'Metafly-Ice', 'Metafly-Poison']},
+    'Metafly': {'abilities': {'0': 'Static Flutter'}, 'evos': None},
+    'Metafly-Fairy': {'abilities': {'0': 'Pixie Dust'}, 'prevo': 'Spincoon', 'evos': None},
+    'Metafly-Fire': {'abilities': {'0': 'Thermal Lift'}, 'prevo': 'Spincoon', 'evos': None},
+    'Metafly-Ice': {'abilities': {'0': 'Frostbite Scale'}, 'prevo': 'Spincoon', 'evos': None},
+    'Metafly-Poison': {'abilities': {'0': 'Toxic Metamorphosis'}, 'prevo': 'Spincoon'},
+    'Budpup': {'abilities': {'0': 'Itemfinder', '1': 'Sniff'}},
+    'Budruff': {'abilities': {'0': 'Itemfinder', '1': 'Sniff'}},
+    'Flacicle': {'baseStats': {'hp': 96, 'atk': 78, 'def': 60, 'spa': 71, 'spd': 130, 'spe': 65}},
+    'Bumburn': {'abilities': {'0': 'Warm Body', 'H': 'Sneaky Sting'}},
+    'Ra-Tu': {'abilities': {'0': 'Focus', '1': 'Reckless'}},
+    'Maskaratto': {'abilities': {'0': 'Focus', '1': 'Reckless'}},
+    'Keksel': {'abilities': {'0': 'Sugar Rush', 'H': 'Gingerbread'}},
+    'Zuckerkeksel': {'abilities': {'0': 'Sugar Rush', '1': 'Crumb Armor', 'H': 'Gingerbread'}},
+    'Butterkeksel': {'abilities': {'0': 'Sugar Rush', '1': 'Crumb Armor', 'H': 'Gingerbread'}},
+    'Toxurchin': {'baseStats': {'hp': 94, 'atk': 114, 'def': 55, 'spa': 91, 'spd': 43, 'spe': 103}},
+    'Knuckimp': {'abilities': {'0': 'Violent', '1': 'Seismic Force'}},
+    'Illusheep': {'abilities': {'0': 'Misfortune', '1': 'Eerie Silence', 'H': 'Tragic Mist'}},
+    'Magnorb': {'abilities': {'0': 'Remanence', '1': 'Magnetic Memory'}},
+    'Cottonip': {'abilities': {'0': 'Anxious'}},
+    'Zapzard': {'abilities': {'0': 'Overcharge', '1': 'Amped Up'}},
+    'Pottakus': {'abilities': {'0': 'Lucha Libre', '1': 'Clay Armor'}},
+    'Nockaktus': {'abilities': {'0': 'Lucha Libre', '1': 'Clay Armor'}},
+    'Kaktombox': {'abilities': {'0': 'Lucha Libre', '1': 'Clay Armor', 'H': 'Dry Skin mask'}},
+    'Fluggel': {'abilities': {'0': 'Wrecking Ball', '1': 'Scavenger Hunger'}},
+    'Corally': {'abilities': {'0': 'Coral Curse', '1': 'Dead Reef'}},
+    'Coravon': {'abilities': {'0': 'Coral Curse', '1': 'Dead Reef'}},
+    'Tuskit': {'abilities': {'0': 'Bone Grip', 'H': 'Survivalist'}},
+    'Steelia': {'abilities': {'0': 'Counterweight', '1': 'Induction Charge'}},
+    'Clouda': {'abilities': {'0': 'Lightweight', 'H': 'Thermal Lift'}},
+    'Pandaroo': {'abilities': {'0': 'Lightweight', 'H': 'Thermal Lift'}},
+    'Puffloat': {'abilities': {'0': 'Lightweight', '1': 'Ground Anchor', 'H': 'Thermal Lift'}},
+    'Florbat': {'abilities': {'0': 'Inverted Flight', '1': 'Vexed Awakaning'}},
+    'Branchit': {'abilities': {'0': 'Inverted Flight', '1': 'Vexed Awakaning'}},
+    'Nadela': {'abilities': {'0': 'Evergreen', '1': 'Sylvan Veil'}},
+    'Toli': {'abilities': {'0': 'Brassica Boost', '1': 'Pinpoint Needle'}},
+    'Flattatoli': {'abilities': {'0': 'Brassica Boost', '1': 'Pinpoint Needle'}},
+    'Tolithena': {'abilities': {'0': 'Brassica Boost', '1': 'Pinpoint Needle', 'H': 'Tactical Lead'}},
+    'Weeperry': {'abilities': {'0': 'Weeping Berry'}},
+    'Brambliss': {'abilities': {'0': 'Blind Needle', 'H': 'Inverted Growth'}},
+    'Violethra': {'abilities': {'0': 'Blind Needle', 'H': 'Inverted Growth'}},
 }
 
 # Formes picked in the team builder rather than reached in battle. Each one
@@ -1103,6 +1178,29 @@ HEADER = """/**
 """
 
 
+def write_generated(path, text):
+    """
+    Writes one generated file.
+
+    These files are meant to be regenerated, but they are also the most obvious
+    place to make a quick change by hand - and a regeneration would throw such a
+    change away without a word. So an existing file that does not match what we
+    are about to write is copied to `<name>.bak` first (gitignored), and the
+    change is announced. Nothing is ever lost silently.
+    """
+    if os.path.exists(path):
+        with open(path, encoding='utf-8') as f:
+            old = f.read()
+        if old == text:
+            return
+        with open(path + '.bak', 'w', encoding='utf-8') as f:
+            f.write(old)
+        print(f"  rewrote {os.path.basename(path)} "
+              f"(previous version kept as {os.path.basename(path)}.bak)")
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(text)
+
+
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     families = json.load(open(os.path.join(here, 'raw', 'dex.json')))
@@ -1134,24 +1232,18 @@ def main():
     report['moves'] = len(generic)
 
     body = '\n'.join(render_entry(mid, fields) for mid, fields, _ in generic)
-    with open(os.path.join(OUT, 'moves-generic.ts'), 'w') as f:
-        f.write(HEADER)
-        f.write("export const GenericMoves: import('../../../../sim/dex-moves')"
-                ".ModdedMoveDataTable = {\n")
-        f.write(body)
-        f.write('\n};\n')
+    write_generated(os.path.join(OUT, 'moves-generic.ts'), HEADER +
+                    "export const GenericMoves: import('../../../../sim/dex-moves')"
+                    ".ModdedMoveDataTable = {\n" + body + '\n};\n')
 
     # ---- species ---------------------------------------------------------
     species = apply_species_fixups(build_species(families))
     lines = []
     for sp in species:
         lines.append(render_entry(toID(sp['name']), render_species(sp)))
-    with open(os.path.join(OUT, 'pokedex.ts'), 'w') as f:
-        f.write(HEADER)
-        f.write("export const Pokedex: import('../../../../sim/dex-species')"
-                ".ModdedSpeciesDataTable = {\n")
-        f.write('\n'.join(lines))
-        f.write('\n};\n')
+    write_generated(os.path.join(OUT, 'pokedex.ts'), HEADER +
+                    "export const Pokedex: import('../../../../sim/dex-species')"
+                    ".ModdedSpeciesDataTable = {\n" + '\n'.join(lines) + '\n};\n')
 
     # ---- learnsets -------------------------------------------------------
     signatures = {}
@@ -1167,12 +1259,9 @@ def main():
         inner = '\n'.join(f'\t\t\t{mid}: {json.dumps(sources)},'.replace('"', "'")
                           for mid, sources in sorted(data['learnset'].items()))
         lines.append(f'\t{sid}: {{\n\t\tlearnset: {{\n{inner}\n\t\t}},\n\t}},')
-    with open(os.path.join(OUT, 'learnsets.ts'), 'w') as f:
-        f.write(HEADER)
-        f.write("export const Learnsets: import('../../../../sim/dex-species')"
-                ".ModdedLearnsetDataTable = {\n")
-        f.write('\n'.join(lines))
-        f.write('\n};\n')
+    write_generated(os.path.join(OUT, 'learnsets.ts'), HEADER +
+                    "export const Learnsets: import('../../../../sim/dex-species')"
+                    ".ModdedLearnsetDataTable = {\n" + '\n'.join(lines) + '\n};\n')
 
     # ---- formats-data ----------------------------------------------------
     lines = []
@@ -1185,12 +1274,9 @@ def main():
             tier = 'OU'
         lines.append(f"\t{toID(sp['name'])}: {{\n\t\ttier: '{tier}',\n"
                      f"\t\tdoublesTier: '{'DOU' if tier == 'OU' else tier}',\n\t}},")
-    with open(os.path.join(OUT, 'formats-data.ts'), 'w') as f:
-        f.write(HEADER)
-        f.write("export const FormatsData: import('../../../../sim/dex-species')"
-                ".ModdedSpeciesFormatsDataTable = {\n")
-        f.write('\n'.join(lines))
-        f.write('\n};\n')
+    write_generated(os.path.join(OUT, 'formats-data.ts'), HEADER +
+                    "export const FormatsData: import('../../../../sim/dex-species')"
+                    ".ModdedSpeciesFormatsDataTable = {\n" + '\n'.join(lines) + '\n};\n')
 
     # ---- index used by the mod, the tests and the data check -------------
     sig_moves, sig_abilities, mega_abilities = {}, {}, {}
@@ -1228,10 +1314,9 @@ def main():
             'crustalram', 'stemdrop', 'baloonbounce', 'heavyslammer',
         }),
     }
-    with open(os.path.join(OUT, 'index.ts'), 'w') as f:
-        f.write(HEADER)
-        f.write('/** Machine-readable inventory of everything this mod adds. */\n')
-        f.write('export const FakemonIndex = ' + json.dumps(index, indent=1) + ' as const;\n')
+    write_generated(os.path.join(OUT, 'index.ts'), HEADER +
+                    '/** Machine-readable inventory of everything this mod adds. */\n'
+                    'export const FakemonIndex = ' + json.dumps(index, indent=1) + ' as const;\n')
 
     json.dump(index, open(os.path.join(here, 'raw', 'index.json'), 'w'), indent=1)
     print(f"species={len(species)} genericMoves={len(generic)} "

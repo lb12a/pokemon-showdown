@@ -694,8 +694,8 @@ export const Pokedex: import('../../../../sim/dex-species').ModdedSpeciesDataTab
 		weightkg: 60.0,
 		color: "Green",
 		prevo: "Bloomlet",
-		evos: ["Cocobotan"],
 		evoType: "other",
+		evos: ["Cocobotan"],
 		eggGroups: ["Grass"],
 	},
 	cocobotan: {
@@ -798,8 +798,8 @@ export const Pokedex: import('../../../../sim/dex-species').ModdedSpeciesDataTab
 		weightkg: 46.7,
 		color: "Green",
 		prevo: "Sproutshroom",
-		evos: ["Pilzogaar"],
 		evoType: "other",
+		evos: ["Pilzogaar"],
 		eggGroups: ["Grass"],
 	},
 	pilzogaar: {

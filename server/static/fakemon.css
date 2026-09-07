@@ -105,6 +105,18 @@ main { padding: 18px; max-width: 1200px; margin: 0 auto; }
 .problem { color: var(--bad); }
 .ok { color: var(--good); }
 
+/* A refused battle has to be impossible to miss, and it has to appear next to
+   the button that was pressed - not in some other panel. */
+#bot-status:empty, #challenges:empty { display: none; }
+#bot-status, #challenges { margin-top: 10px; }
+#bot-status .problem, #challenges .problem {
+	padding: 9px 11px; border-radius: 8px;
+	border-left: 3px solid var(--bad);
+	background: rgba(226, 101, 58, .12);
+	line-height: 1.45;
+}
+#bot-status .problem b, #challenges .problem b { display: block; margin-bottom: 3px; }
+
 /* ---------- type badges ---------- */
 .type {
 	display: inline-block; padding: 1px 7px; border-radius: 999px;

@@ -2080,6 +2080,12 @@ export const Rulesets: import('../sim/dex-formats').FormatDataTable = {
 		hasValue: 'integer',
 		// hardcoded in sim/team-validator
 	},
+	freespreads: {
+		effectType: 'ValidatorRule',
+		name: "Free Spreads",
+		desc: "Turns off the warnings that guess a legal spread was a copy-paste mistake (0 EVs, exactly 508/510 EVs, level 50).",
+		// hardcoded in sim/team-validator
+	},
 	maxteamsize: {
 		effectType: 'ValidatorRule',
 		name: "Max Team Size",

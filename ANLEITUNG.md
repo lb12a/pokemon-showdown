@@ -412,6 +412,55 @@ Kampf waren.
 **Erwartet:** im Haunted Room zählt jedes Pokémon als Geist, also hält Cabinet
 Lock alles fest.
 
+### H · Der Bot kämpft immer, wenn das Team legal ist
+
+Das war der gemeldete Fehler: „der Bot kämpft manchmal nicht, wenn ich ihm ein
+Team gebe". Ursache waren **zwei** Dinge, beide sind behoben.
+
+1. Der Server hat jedes Pokémon **ohne EVs** abgelehnt — mit der Showdown-
+   Warnung „did you forget to EV it?". Ein frisch gebautes Pokémon im
+   Teambuilder hat aber genau 0 EVs, das war also der Normalfall, nicht der
+   Sonderfall. Dieselbe Warnung gab es für **Level 50**. Beide Warnungen sind
+   für dieses Spiel abgeschaltet (Regel `Free Spreads`).
+2. Wenn der Server doch einmal ablehnt, stand die Meldung vorher **nirgendwo**
+   auf dem Bildschirm. Jetzt erscheint sie direkt unter dem Knopf
+   *„Start battle"*, rot umrandet.
+
+**So testest du es:**
+
+1. Teambuilder → *New team* → Import/Export-Feld leeren und das hier einfügen:
+
+   ```
+   Illusheep
+   Ability: Misfortune
+   EVs: 252 Spe
+   Hasty Nature
+   IVs: 0 HP / 0 Atk / 0 Def / 0 SpA / 0 SpD
+   - Fake Fluff
+
+   Tigraith (M)
+   Ability: Reckless
+   Serious Nature
+   - Aurora Curtain
+   ```
+
+2. *„⇧ Import as a new team"* drücken. Unten muss **„Team is legal."** stehen —
+   obwohl Tigraith gar keine EVs hat.
+3. Play → *Bot team* auf **„You pick both teams"**, bei *Your team* und
+   *The bot's team* dieses Team wählen → **Start battle**.
+
+**Erwartet:** der Kampf startet sofort. Tigraith ist mit `(M)` markiert, also
+megaentwickelt der Bot es garantiert.
+
+**Und der Gegentest:** stell im Teambuilder bei einem Pokémon eine Fähigkeit
+ein, die es nicht hat (oder lösche alle Attacken) und drücke *Start battle*.
+Jetzt muss unter dem Knopf eine rote Meldung stehen, die sagt, **welches**
+Pokémon woran scheitert. Ein stiller Fehlschlag darf nicht mehr vorkommen.
+
+Nebenbei behoben: ein Pokémon auf der Bank, das seine Mega-Form zurücksetzt,
+wurde vom Bot als Ziel auf dem Feld verbucht — dadurch hat er in Doppelkämpfen
+einen ungültigen Zug geschickt und der Kampf blieb stehen.
+
 ## 3. Automatisch prüfen, ohne Klicken
 
 Neues PowerShell-Fenster, wieder **im Ordner `pokemon-showdown`**:
@@ -427,7 +476,7 @@ normal — die Bilder sind noch Platzhalter.
 npx mocha
 ```
 
-Muss `2448 passing` melden, `0 failing`.
+Muss `2460 passing` melden, `0 failing`.
 
 ---
 
@@ -444,6 +493,13 @@ SPECIES_FIXUPS = {
     'Chronowl': {'abilities': {'0': 'Slowmofly', '1': 'Reckless'}},
 }
 ```
+
+> **Achtung, wichtig:** du hast zuletzt direkt in
+> `data/mods/fakemon/generated/pokedex.ts` editiert. Das funktioniert und
+> `node build` überschreibt es **nicht** — aber `python3 tools/fakemon/build.py`
+> schreibt diese Datei neu und wirft deine Änderungen weg. Wenn du also von Hand
+> in `generated/` arbeitest, führe den Generator nicht mehr aus, oder trag
+> deine Änderungen vorher in `SPECIES_FIXUPS` nach.
 
 **Attacken ändern** → drei Wege:
 
@@ -466,6 +522,12 @@ Der letzte Befehl muss `ERRORS: 0` sagen — er meckert auch, wenn du dich
 vertippt hast (`unknown ability "Slowmofli"`).
 
 ## 5. Wenn etwas nicht stimmt
+
+**Der Kampf startet nicht und nichts passiert**
+→ Das kann seit diesem Stand nicht mehr stumm passieren. Unter dem Knopf
+*„Start battle"* steht dann eine rote Meldung mit dem Grund. Steht dort nichts
+und es passiert trotzdem nichts, ist die Verbindung weg — oben rechts steht
+dann `disconnected - reload to reconnect`.
 
 **Es sieht alles aus wie vorher / neue Sachen fehlen**
 → Fast immer der falsche Branch. Siehe Abschnitt 0b: `git branch --show-current`

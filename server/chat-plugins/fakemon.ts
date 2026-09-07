@@ -106,20 +106,32 @@ export const commands: Chat.ChatCommands = {
 			);
 		}
 
-		// "custom": you built both sides, so the bot's team is validated the
-		// same way your own is - it is player input reaching the battle engine.
+		// Both teams are player input reaching the battle engine, so both are
+		// validated here - and a refusal always says whose team it was about.
+		// A battle that does not start has to say why: silence looks exactly
+		// like "the bot refuses to fight me".
+		if (!generatesTeams && ownTeam) {
+			const problems = TeamValidator.get(format.id).validateTeam(Teams.unpack(ownTeam));
+			if (problems) {
+				return this.errorReply(`Your team cannot battle: ${problems.join(' ')}`);
+			}
+		}
+
 		let preparedBotTeam: string | undefined;
 		let megaSpecies: string[] = [];
 		if (teamMode === 'custom' && !generatesTeams) {
 			const prepared = botTeams.get(user.id);
 			if (!prepared) {
-				return this.errorReply(`Send the bot's team with /fakemonbotteam first.`);
+				return this.errorReply(
+					`The bot has no team, so there is nothing to battle against. ` +
+					`Pick one under "The bot's team" and press Start battle again.`
+				);
 			}
 			preparedBotTeam = prepared.team;
 			megaSpecies = prepared.megaSpecies;
 			const problems = TeamValidator.get(format.id).validateTeam(Teams.unpack(preparedBotTeam));
 			if (problems) {
-				return this.errorReply(`The bot's team is not legal: ${problems.join(' ')}`);
+				return this.errorReply(`The bot's team cannot battle: ${problems.join(' ')}`);
 			}
 		}
 

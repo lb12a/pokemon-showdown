@@ -79,3 +79,6 @@ pip-log.txt
 # Python bytecode from the Fakemon importers
 __pycache__/
 *.pyc
+
+# Backups the Fakemon generator makes before overwriting a file you edited
+data/mods/fakemon/generated/*.bak

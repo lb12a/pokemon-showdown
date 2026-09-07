@@ -1328,7 +1328,12 @@ export class TeamValidator {
 
 		let totalEV = 0;
 		for (const stat in set.evs) totalEV += set.evs[stat as 'hp'];
-		if (!this.format.debug) {
+		// The next block is not about legality: every problem it reports is a
+		// legal set that *looks* like a copy-paste mistake from another format
+		// ("you probably meant to EV this", "you probably pasted a VGC set").
+		// A format where an uninvested or level 50 Pokemon is a normal thing to
+		// build turns the guesswork off with `Free Spreads`.
+		if (!this.format.debug && !ruleTable.has('freespreads')) {
 			if (set.level > 1 && evLimit !== 0 && totalEV === 0) {
 				if (useStatPoints) {
 					if (set.nature === 'Serious') {

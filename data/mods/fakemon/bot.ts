@@ -23,6 +23,9 @@ const CHOOSABLE_TARGETS = new Set(['normal', 'any', 'adjacentAlly', 'adjacentAll
 /** Targets that point at the bot's own side, which uses negative slot numbers. */
 const ALLY_TARGETS = new Set(['adjacentAlly', 'adjacentAllyOrSelf']);
 
+/** A position on the field: "p1a", "p2b". A benched Pokemon is just "p1". */
+const SLOT = /^p[1-9][a-z]$/;
+
 /** How much noise is added to every score, and how often the bot plans ahead. */
 const DIFFICULTY: { [d in BotDifficulty]: { noise: number, switching: boolean, mega: boolean } } = {
 	easy: { noise: 0.6, switching: false, mega: false },
@@ -77,8 +80,13 @@ export class FakemonBot {
 		}
 		case 'switch': case 'drag': case 'replace': case 'detailschange': {
 			// |switch|p2a: Nickname|Species, L100, F|100/100
+			//
+			// A Pokemon that is NOT on the field is written without its slot
+			// letter ("p1: Fluffox"), which is how a Mega reverting on the bench
+			// is reported. That is not a position anything can be aimed at, so
+			// only a real slot may become a foe.
 			const position = parts[1]?.split(':')[0];
-			if (!position) return;
+			if (!SLOT.test(position || '')) return;
 			const species = parts[2]?.split(',')[0]?.trim() || '';
 			if (position.startsWith(this.mySide)) return;
 			this.foes.set(position, {
@@ -400,10 +408,12 @@ export class FakemonBot {
 		const species = this.dex.species.get(self.details?.split(',')[0] || self.speciesForme);
 		let best: { slot: string, score: number } | null = null;
 		for (const [position, foe] of foes) {
+			// "p2a" -> slot 1, "p2b" -> slot 2, as seen from the opposing side.
+			// Anything else is not a slot on the field and cannot be aimed at.
+			const slot = position.charCodeAt(position.length - 1) - 96;
+			if (slot < 1 || slot > 3) continue;
 			const damage = this.estimateDamagePercent(move, species, foe);
 			const score = damage + (damage >= foe.hpPercent ? 50 : 0);
-			// "p2a" -> slot 1, "p2b" -> slot 2, as seen from the opposing side.
-			const slot = position.charCodeAt(position.length - 1) - 96;
 			if (!best || score > best.score) best = { slot: `${slot}`, score };
 		}
 		return best?.slot ?? null;

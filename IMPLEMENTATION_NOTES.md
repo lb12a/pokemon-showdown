@@ -483,7 +483,8 @@ Two additions to the built-in client:
 
 **EVs, IVs and natures** are edited exactly like a normal Pokémon: six EV boxes
 capped at 252 each and 508 in total (508 is what is actually spendable, and the
-server's own limit is 510, so anything the builder accepts is legal there),
+format is set to the same cap with `!! EV Limit = 508`, so the builder and the
+server agree exactly),
 six IV boxes, and all 25 natures with what each one raises and lowers. Typing
 past the total clamps to what is still free instead of quietly making the team
 illegal. The old spread presets survive as a
@@ -591,6 +592,61 @@ The coverage harness now fires a handler for **every** ability, item and move
 except `Electic Gnaw`, which needs the target to be holding a food item, and it
 runs 240 items × 3 seeds × 14 turns with zero crashes.
 
+## 9e. "The bot won't fight me"
+
+Reported as *the bot sometimes refuses to battle when I give it a team*, with a
+two-Pokemon example that looked completely ordinary. It was two separate bugs
+stacked on top of each other, and the second one is what made it look like
+nothing was happening at all.
+
+**1. The server refused legal teams.** `TeamValidator` carries three checks that
+are not about legality but about guessing that a *legal* set was a copy-paste
+mistake from another format:
+
+* `has exactly 0 EVs - did you forget to EV it?`
+* `has exactly 508/510 EVs, but this format does not restrict you to 510 EVs`
+* `is level 50, but this format allows level 100 Pokémon`
+
+In this game all three are wrong. A Pokemon added in the team builder starts on
+**0 EVs**, and levels 1-100 are all normal, so the "you forgot" guess fired on
+the ordinary case. The team in the report had one Pokemon with 252 Spe and one
+with nothing at all, and the second one was refused.
+
+The fix is a rule, not a special case: `Free Spreads` (`data/rulesets.ts`, honoured
+in `sim/team-validator.ts`) turns the guesswork off, and the Fakemon ruleset
+switches it on. A workaround that had grown around the level-50 check - the
+client quietly adding one HP EV to every non-level-100 set so the total was not
+divisible by four - is gone with it. It was also about to become a bug of its
+own: with the EV limit now pinned at 508, a full spread plus that spare point
+would have been 509 and refused.
+
+**2. A refusal was invisible.** The commands go to the server outside any room,
+and the answer to those comes back as a private message from `~`:
+
+```
+|pm| Trainer43266|~|/error Pick a team in the Teambuilder first
+```
+
+The client's `pm` handler read challenges and returned early for everything
+else, so every refusal was dropped on the floor. Now `/error` is shown and
+`/text` (the "Started a battle" confirmation) clears the last refusal. The
+message also appears in the panel the player actually pressed a button in: the
+bot panel got its own `#bot-status` box, because the only status line before
+this lived in the *Play against a friend* panel further down the page.
+
+On top of that the client now checks what the server checks - the ability
+belongs to the species, the item exists, the level is 1-100, and doubles needs
+at least two Pokemon - so a team that passes in the builder always starts a
+battle. A sweep of all 348 species/ability combinations and 733 generated teams
+finds nothing the server would still refuse.
+
+**3. The bot could send an illegal move.** Separately, a Mega reverting *on the
+bench* is reported without a slot letter (`|detailschange|p1: Fluffox|…`, not
+`p1a:`). The bot stored that as an enemy position and turned it into target
+`-47`, so the battle stopped on `[Invalid choice] … doesn't have a move matching
+147`. Only real slots (`/^p[1-9][a-z]$/`) count as targets now, and `bestTarget`
+refuses to emit a slot outside 1-3.
+
 ## 10. Files changed and added
 
 **New**
@@ -674,7 +730,7 @@ Two things made a stale build possible in the first place, both fixed:
 ```bash
 node build                       # compile
 node tools/fakemon/check.js      # data + balance report (0 errors)
-npx mocha                        # the suite (runs everything: 2448 tests)
+npx mocha                        # the suite (runs everything: 2460 tests)
 python3 tools/fakemon/build.py   # regenerate + report uncompiled effect text
 npx eslint                       # clean
 npx tsc --noEmit                 # clean

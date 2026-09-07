@@ -127,6 +127,15 @@ const Net = {
 			const from = parts[1].trim().replace(/^[^A-Za-z0-9]/, '');
 			const to = parts[2].trim().replace(/^[^A-Za-z0-9]/, '');
 			const body = parts[3] || '';
+			// A command typed outside a room gets its answer as a PM from the
+			// server, so this is where a refused battle arrives. Dropping it is
+			// what made "the bot just won't fight" look like nothing happening.
+			const reply = /^\/(error|text|raw|html)\s+([\s\S]*)$/.exec(body);
+			if (reply) {
+				if (reply[1] === 'error') UI.serverProblem(reply[2]);
+				else UI.serverInfo(reply[2]);
+				return;
+			}
 			if (!body.startsWith('/challenge')) return;
 			if (toID(to) !== toID(this.name)) return; // our own outgoing challenge
 			const format = (parts[4] || '').trim();
@@ -139,7 +148,7 @@ const Net = {
 			return;
 		}
 		case 'popup':
-			UI.notice(parts.slice(1).join('|'));
+			UI.serverProblem(parts.slice(1).join('|'));
 			return;
 		case 'init':
 			if (parts[1] === 'battle') Battle.open(roomid);
@@ -150,8 +159,8 @@ const Net = {
 		}
 		if (roomid.startsWith('battle-')) {
 			Battle.line(roomid, line);
-		} else if (cmd === 'error' || (!cmd && line.trim())) {
-			UI.notice(line.replace(/^\|/, ''));
+		} else if (cmd === 'error') {
+			UI.serverProblem(parts.slice(1).join('|'));
 		}
 	},
 };
@@ -279,13 +288,11 @@ const Teams = {
 			this.migrate(set);
 			const moves = set.moves.filter(Boolean).map(toID).join(',');
 			const level = clampLevel(set.level);
-			const evs = { ...set.evs };
-			// Showdown flags a level-50 set with a round EV total as a probable
-			// import mistake; one spare EV point is the documented "I meant it".
-			if (level !== 100 && Object.values(evs).reduce((a, b) => a + b, 0) % 4 === 0) {
-				evs.hp = Math.min(252, (evs.hp || 0) + 1);
-			}
-			const packedEvs = STATS.map(stat => evs[stat] || '').join(',');
+			// The spread is packed exactly as it was built: the `Free Spreads`
+			// rule means the server no longer guesses that a round EV total or
+			// an uninvested Pokemon was an import mistake, so nothing has to be
+			// nudged behind the player's back.
+			const packedEvs = STATS.map(stat => set.evs[stat] || '').join(',');
 			// 31 is the default, so a full spread packs as an empty field.
 			const ivs = STATS.map(stat => (set.ivs[stat] === 31 ? '' : String(set.ivs[stat] ?? 31)));
 			const packedIvs = ivs.every(value => value === '') ? '' : ivs.join(',');
@@ -415,20 +422,37 @@ const Teams = {
 		return { sets: sets.slice(0, 6), problems };
 	},
 
-	/** Problems a player should fix before battling; the server re-checks anyway. */
-	problems(team) {
+	/**
+	 * Problems a player should fix before battling. This mirrors the rules the
+	 * server enforces, so a team that passes here always starts a battle - a
+	 * refusal the player cannot see is worse than no check at all.
+	 * `format` is 'singles' | 'doubles' | 'random' | 'randomdoubles'.
+	 */
+	problems(team, format) {
 		const out = [];
 		const used = new Set();
 		const sets = team.sets.filter(set => set.species);
-		if (!sets.length) out.push('The team is empty.');
+		if (!sets.length) out.push('The team is empty - add at least one Pokémon.');
+		// Doubles puts two Pokémon out at once, so one is not a team.
+		if (sets.length === 1 && String(format || '').includes('doubles')) {
+			out.push('Doubles needs at least 2 Pokémon on the team.');
+		}
 		for (const set of sets) {
 			const id = toID(set.species);
 			const species = D.pokedex[id];
 			if (!species) { out.push(`${set.species} is not a Fakemon.`); continue; }
+			// Fills in anything an older saved team is missing, so every check
+			// below reads a complete set.
+			this.migrate(set);
 			if (species.battleOnly) out.push(`${species.name} is a Mega forme and cannot be on a team.`);
 			if (used.has(id)) out.push(`${species.name} is on the team twice (Species Clause).`);
 			used.add(id);
-			if (!set.ability) out.push(`${species.name} has no ability.`);
+			const own = Object.values(species.abilities || {}).filter(Boolean);
+			if (!set.ability) {
+				out.push(`${species.name} has no ability.`);
+			} else if (!own.some(name => toID(name) === toID(set.ability))) {
+				out.push(`${species.name} cannot have ${set.ability} - it has ${own.join(', ')}.`);
+			}
 			const moves = set.moves.filter(Boolean);
 			if (!moves.length) out.push(`${species.name} has no moves.`);
 			const learnset = D.learnsets[id] || [];
@@ -438,12 +462,16 @@ const Teams = {
 				}
 			}
 			const item = D.items[toID(set.item)];
+			if (set.item && !item) out.push(`${species.name} is holding ${set.item}, which is not an item in this game.`);
 			if (item && item.megaStone && !item.megaStone[species.name]) {
 				out.push(`${item.name} belongs to ${Object.keys(item.megaStone).join('/')}, not ${species.name}.`);
 			}
+			const level = Number(set.level);
+			if (!Number.isInteger(level) || level < 1 || level > 100) {
+				out.push(`${species.name}'s level must be a whole number from 1 to 100.`);
+			}
 			// No item and one to three moves are both perfectly legal; only the
 			// numbers that the server would reject are worth reporting.
-			this.migrate(set);
 			const evTotal = STATS.reduce((total, stat) => total + (set.evs[stat] || 0), 0);
 			if (evTotal > EV_LIMIT) {
 				out.push(`${species.name} has ${evTotal} EVs, more than the limit of ${EV_LIMIT}.`);
@@ -475,7 +503,9 @@ const UI = {
 		$('#set-name').onclick = () => {
 			const name = $('#name-input').value.trim();
 			if (!name || /^guest\b/i.test(name)) {
-				return this.notice('Pick a name that does not start with "Guest".');
+				this.beginAction('#challenges');
+				this.problem('Pick a name that does not start with "Guest".', []);
+				return;
 			}
 			try { localStorage.setItem('fakemon-name', name); } catch {}
 			Net.send(`|/trn ${name},0,`);
@@ -546,13 +576,57 @@ const UI = {
 		const tab = document.querySelector(`.tab[data-view="${view}"]`);
 		if (tab) tab.classList.add('active');
 	},
-	notice(text) {
-		const line = text.replace(/\|/g, ' ').trim();
-		if (line) console.log('[server]', line);
-		const box = $('#challenges');
-		if (box && /challenge|team|invalid|cannot|not a|rejected/i.test(line)) {
-			box.textContent = line;
+	/**
+	 * Where a server message about the last thing the player pressed should
+	 * appear. Set by startBot/sendChallenge so a refused battle is reported
+	 * next to the button that was pressed instead of in another panel.
+	 */
+	statusBox: '#challenges',
+	/** Clears the box and remembers it as the place server replies go. */
+	beginAction(boxId) {
+		this.statusBox = boxId;
+		const box = $(boxId);
+		if (box) box.innerHTML = '';
+		const other = $(boxId === '#bot-status' ? '#challenges' : '#bot-status');
+		if (other && other.querySelector('.problem')) other.innerHTML = '';
+	},
+	/** Shows a problem in the current box. `lines` may be a string or a list. */
+	problem(title, lines, boxId) {
+		const box = $(boxId || this.statusBox);
+		if (!box) return;
+		const body = (Array.isArray(lines) ? lines : [lines]).filter(Boolean);
+		box.innerHTML = `<div class="problem"><b>${escapeHTML(title)}</b>` +
+			body.map(escapeHTML).join('<br />') + `</div>`;
+	},
+	/** Turns a protocol line into the sentence a player should read. */
+	plain(text) {
+		return String(text).replace(/^(error|popup|raw|html)\|/, '')
+			.replace(/\|/g, ' ').replace(/\s*\n+\s*/g, ' ').trim();
+	},
+	/** The server refused something. This must never be silent. */
+	serverProblem(text) {
+		const line = this.plain(text);
+		if (!line) return;
+		console.log('[server]', line);
+		const box = $(this.statusBox);
+		if (!box) return;
+		const previous = box.querySelector('.problem');
+		if (previous) {
+			// A second message about the same click adds to the first one
+			// instead of hiding it (e.g. "team not stored" then "no team").
+			previous.insertAdjacentHTML('beforeend', `<br />${escapeHTML(line)}`);
+		} else {
+			box.innerHTML = `<div class="problem"><b>The server refused that:</b>${escapeHTML(line)}</div>`;
 		}
+	},
+	/** The server just told us something went fine. */
+	serverInfo(text) {
+		const line = this.plain(text);
+		if (!line) return;
+		console.log('[server]', line);
+		const box = $(this.statusBox);
+		// A success wipes the refusal that was on screen from the last try.
+		if (box && box.querySelector('.problem')) box.innerHTML = '';
 	},
 
 	// ---------- team pickers ----------
@@ -575,24 +649,25 @@ const UI = {
 	},
 
 	// ---------- play ----------
-	useTeam(team, format) {
+	useTeam(team, format, label) {
 		// Random formats generate teams server-side; sending one would be ignored.
 		if (format.startsWith('random')) {
 			Net.send(`|/utm null`);
 			return true;
 		}
-		const problems = Teams.problems(team);
+		const problems = Teams.problems(team, format);
 		if (problems.length) {
-			$('#challenges').innerHTML = `<div class="problem">${problems.map(escapeHTML).join('<br />')}</div>`;
+			this.problem(label || `That team cannot battle yet:`, problems);
 			return false;
 		}
 		Net.send(`|/utm ${Teams.pack(team)}`);
 		return true;
 	},
 	startBot() {
+		this.beginAction('#bot-status');
 		const format = $('#bot-format').value;
 		const team = this.selectedTeam('#bot-team');
-		if (!this.useTeam(team, format)) return;
+		if (!this.useTeam(team, format, `Your team cannot battle yet:`)) return;
 		const name = $('#bot-name').value.trim() || 'Fakemon Bot';
 		const mode = $('#bot-teammode').value;
 		const difficulty = $('#bot-difficulty').value;
@@ -600,10 +675,9 @@ const UI = {
 		// which is full of commas, so it goes in its own command first.
 		if (mode === 'custom' && !format.startsWith('random')) {
 			const botTeam = this.selectedTeam('#bot-own-team');
-			const problems = Teams.problems(botTeam);
+			const problems = Teams.problems(botTeam, format);
 			if (problems.length) {
-				$('#challenges').innerHTML =
-					`<div class="problem">The bot's team: ${problems.map(escapeHTML).join('<br />')}</div>`;
+				this.problem(`The bot's team cannot battle yet:`, problems);
 				return;
 			}
 			// Which of the bot's Pokemon it is allowed to Mega Evolve. With
@@ -617,11 +691,12 @@ const UI = {
 		}, 60);
 	},
 	sendChallenge() {
+		this.beginAction('#challenges');
 		const target = $('#pvp-name').value.trim();
-		if (!target) return this.notice('Enter a username to challenge.');
+		if (!target) return this.problem(`Enter a username to challenge.`, []);
 		const format = $('#pvp-format').value;
 		const team = this.selectedTeam('#pvp-team');
-		if (!this.useTeam(team, format)) return;
+		if (!this.useTeam(team, format, `Your team cannot battle yet:`)) return;
 		setTimeout(() => {
 			Net.send(`|/challenge ${target}, ${FORMAT_IDS[format]}`);
 			$('#challenges').textContent = `Challenge sent to ${target}.`;
@@ -638,7 +713,8 @@ const UI = {
 			accept.onclick = () => {
 				const format = formatId.includes('random') ? 'random' :
 					(formatId.includes('doubles') ? 'doubles' : 'singles');
-				if (!this.useTeam(this.selectedTeam('#pvp-team'), format)) return;
+				this.statusBox = '#challenges';
+				if (!this.useTeam(this.selectedTeam('#pvp-team'), format, `Your team cannot battle yet:`)) return;
 				delete Net.challenges[from];
 				setTimeout(() => Net.send(`|/accept ${from}`), 60);
 			};
@@ -708,7 +784,7 @@ const UI = {
 		wrap.innerHTML = '';
 		team.sets.forEach((set, i) => wrap.appendChild(this.renderSlot(team, set, i)));
 
-		const problems = Teams.problems(team);
+		const problems = Teams.problems(team, team.format);
 		$('#team-validation').innerHTML = problems.length ?
 			`<div class="problem">${problems.map(escapeHTML).join('<br />')}</div>` :
 			`<div class="ok">Team is legal.</div>`;
@@ -1280,6 +1356,11 @@ const Battle = {
 		case '-resisted': this.log(roomid, `It's not very effective…`); break;
 		case '-crit': this.log(roomid, `A critical hit!`); break;
 		case '-immune': this.log(roomid, `It had no effect.`); break;
+		// Without these a move whose condition was not met (Aurora Curtain
+		// outside hail, say) just reads as "used it" and nothing happening.
+		case '-fail': this.log(roomid, `But it failed!`); break;
+		case '-miss': this.log(roomid, `The attack missed!`); break;
+		case '-notarget': this.log(roomid, `There was no target.`); break;
 		case '-weather':
 			if (p[1] !== 'none') this.log(roomid, `Weather: ${p[1]}`, 'sys');
 			break;
@@ -1294,7 +1375,15 @@ const Battle = {
 		}
 		case '-boost': case '-unboost': {
 			const mon = this.mon(room, p[1].split(':')[0]);
-			this.log(roomid, `${mon.species}'s ${p[2].toUpperCase()} ` +
+			const stat = p[2].toUpperCase();
+			// The engine still sends the line when a stat is already at its
+			// limit, with an amount of 0 - "fell by 0" is not what happened.
+			if (Number(p[3]) === 0) {
+				this.log(roomid, `${mon.species}'s ${stat} won't go any ` +
+				`${p[0] === '-boost' ? 'higher' : 'lower'}!`);
+				break;
+			}
+			this.log(roomid, `${mon.species}'s ${stat} ` +
 			`${p[0] === '-boost' ? 'rose' : 'fell'} by ${p[3]}.`);
 			break;
 		}
