@@ -55,6 +55,20 @@ const DISCONNECTION_BANK_TIME = 300;
 const TIMER_COOLDOWN = 20 * SECONDS;
 const LOCKDOWN_PERIOD = 30 * 60 * 1000; // 30 minutes
 
+/**
+ * A computer-controlled battle participant. `RoomBattle` drives any slot that
+ * has one of these instead of a user: it forwards the public log to `observe`
+ * and answers each request with `decide`.
+ *
+ * The Fakemon system's implementation lives in `data/mods/fakemon/bot.ts`.
+ */
+export interface BattleBot {
+	readonly name: string;
+	setSide(side: SideID): void;
+	observe(line: string): void;
+	decide(request: AnyObject): string;
+}
+
 export class RoomBattlePlayer extends RoomGamePlayer<RoomBattle> {
 	readonly slot: SideID;
 	readonly channelIndex: ChannelIndex;
@@ -460,6 +474,13 @@ export class RoomBattleTimer {
 	}
 }
 
+export interface RoomBattleBotOptions {
+	/** Shown in the battle UI in place of a username. */
+	name: string;
+	/** Packed team; omit for a format that generates teams. */
+	team?: string;
+	bot: BattleBot;
+}
 export interface RoomBattlePlayerOptions {
 	user: User;
 	/** should be '' for random teams */
@@ -480,6 +501,12 @@ export interface RoomBattleOptions {
 	 * In all special cases, either `delayedStart` or `inputLog` must be set
 	 */
 	players: RoomBattlePlayerOptions[];
+	/**
+	 * Slots played by an AI instead of a user, keyed by slot ('p2', ...).
+	 * A slot listed here is filled after the human players and does not need a
+	 * user; see `BattleBot`.
+	 */
+	bots?: { [slot: string]: RoomBattleBotOptions };
 	delayedStart?: boolean | 'multi';
 	challengeType?: ChallengeType;
 	allowRenames?: boolean;
@@ -590,6 +617,17 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
 			const player = this.addPlayer(p?.user || null, p || null);
 			if (!player) throw new Error(`failed to create player ${i + 1} in ${room.roomid}`);
 		}
+		for (const [slot, botOptions] of Object.entries(options.bots || {})) {
+			const player = this[slot as SideID];
+			if (!player) throw new Error(`No slot ${slot} in ${room.roomid} for bot ${botOptions.name}`);
+			player.name = botOptions.name;
+			player.hasTeam = true;
+			botOptions.bot.setSide(slot as SideID);
+			this.bots[slot] = botOptions.bot;
+			void this.stream.write(`>player ${slot} ${JSON.stringify({
+				name: botOptions.name, avatar: '', team: botOptions.team || undefined, rating: 0,
+			})}`);
+		}
 		if (options.inputLog) {
 			let scanIndex = 0;
 			for (const player of this.players) {
@@ -608,12 +646,33 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
 	}
 
 	checkActive() {
-		const active = (this.started && !this.ended && this.players.every(p => p.active));
+		const active = (this.started && !this.ended &&
+			this.players.every(p => p.active || !!this.bots[p.slot]));
 		Rooms.global.battleCount += (active ? 1 : 0) - (this.active ? 1 : 0);
 		this.room.active = active;
 		this.active = active;
 		if (Rooms.global.battleCount === 0) Rooms.global.automaticKillRequest();
 	}
+	/** Slots played by an AI rather than a user. See `BattleBot`. */
+	bots: { [slot: string]: BattleBot } = {};
+
+	/** Let a bot answer the request its slot just received. */
+	private botRespond(slot: SideID) {
+		const bot = this.bots[slot];
+		const player = this[slot];
+		if (!bot || !player) return;
+		const request = player.request;
+		if (request.isWait !== false) return;
+		const choice = bot.decide(JSON.parse(request.request));
+		if (!choice) return;
+		request.isWait = true;
+		request.choice = choice;
+		// Deferred so the choice is written outside the stream's own read loop.
+		process.nextTick(() => {
+			if (!this.ended) void this.stream.write(`>${slot} ${choice}`);
+		});
+	}
+
 	override choose(user: User, data: string) {
 		if (this.frozen) {
 			user.popup(`Your battle is currently paused, so you cannot move right now.`);
@@ -774,6 +833,7 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
 				if (line.startsWith('|turn|')) {
 					this.turn = parseInt(line.slice(6));
 				}
+				for (const bot of Object.values(this.bots)) bot.observe(line);
 				this.room.add(line);
 				if (line.startsWith(`|bigerror|You will auto-tie if `) && Config.allowrequestingties && !this.room.tour) {
 					this.room.add(`|-hint|If you want to tie earlier, consider using \`/offertie\`.`);
@@ -793,6 +853,13 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
 				const request = this[slot].request;
 				request.isWait = undoFailed ? 'cantUndo' : false;
 				request.choice = '';
+				if (this.bots[slot] && !undoFailed) {
+					// A bot must never leave the battle waiting on a bad choice.
+					request.isWait = true;
+					process.nextTick(() => {
+						if (!this.ended) void this.stream.write(`>${slot} default`);
+					});
+				}
 			} else if (lines[2].startsWith(`|request|`)) {
 				this.rqid++;
 				const request = JSON.parse(lines[2].slice(9));
@@ -806,6 +873,10 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
 				};
 				this.requestCount++;
 				player?.sendRoom(`|request|${requestJSON}`);
+				if (this.bots[slot]) {
+					this.botRespond(slot);
+					break;
+				}
 				if (!request.update) this.timer.nextRequest(player);
 				break;
 			}
@@ -1054,7 +1125,7 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
 	 * playerOpts should be empty only if importing an inputlog
 	 * (so the player isn't recreated)
 	 */
-	override addPlayer(user: User | string | null, playerOpts?: RoomBattlePlayerOptions | null) {
+	override addPlayer(user: User | string | null, playerOpts?: Partial<RoomBattlePlayerOptions> | null) {
 		const player = super.addPlayer(user);
 		if (typeof user === 'string') user = null;
 		if (!player) return null;
@@ -1206,13 +1277,13 @@ export class RoomBattle extends RoomGame<RoomBattlePlayer> {
 		const delayStart = this.options.delayedStart || !!this.options.inputLog;
 		const users = this.players.map(player => {
 			const user = player.getUser();
-			if (!user && !delayStart) {
+			if (!user && !delayStart && !this.bots[player.slot]) {
 				throw new Error(`User ${player.id} not found on ${this.roomid} battle creation`);
 			}
 			return user;
 		});
 		if (!delayStart) {
-			Rooms.global.onCreateBattleRoom(users as User[], this.room, { rated: this.rated });
+			Rooms.global.onCreateBattleRoom(users.filter(Boolean) as User[], this.room, { rated: this.rated });
 			this.started = true;
 		} else if (delayStart === 'multi') {
 			this.room.add(`|uhtml|invites|<div class="broadcast broadcast-blue"><strong>This is a 4-player challenge battle</strong><br />The players will need to add more players before the battle can start.</div>`);

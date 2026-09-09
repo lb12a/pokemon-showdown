@@ -1,1 +1,8 @@
 * text=auto
+
+# Generated files that a build rewrites: pinned to LF so a Windows checkout
+# does not turn them into CRLF, which would make every build dirty the working
+# tree and every following `git pull` abort.
+assets/manifest.json text eol=lf
+data/mods/fakemon/generated/*.ts text eol=lf
+tools/fakemon/raw/*.json text eol=lf

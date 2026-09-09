@@ -1,15 +1,167 @@
 <!DOCTYPE html>
-<script>
-var host = document.location.hostname.replace(/-/g, '=').replace(/\./g, '-').replace(/:/g, '--').replace(/=/g, '---');
-var currentPort = document.location.port || (document.location.protocol === 'https:' ? '443' : '80');
-var defaultPort = document.location.protocol === 'https:' ? '443' : '8000';
-var suffix = (currentPort !== defaultPort ? '--' + currentPort : '');
-var protocol = 'https:';
-if (document.location.protocol !== 'https:' && host !== 'localhost') {
-	protocol = 'http:';
-	suffix += '.insecure';
-}
-document.location.replace(protocol + '//' + host + suffix + '.psim.us' + document.location.pathname);
-</script>
-<p>This is a <a href="http://www.pokemonshowdown.com">Pok&eacute;mon Showdown</a> server!</p>
-<noscript><p>You'll need to <a href="http://enable-javascript.com/en/">enable JavaScript</a> to play.</p></noscript>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Fakemon Battle</title>
+<link rel="icon" href="/assets/ui/mega-icon.png" />
+<link rel="stylesheet" href="/fakemon.css" />
+</head>
+<body>
+<header class="topbar">
+	<div class="brand">Fakemon</div>
+	<nav class="tabs">
+		<button class="tab" data-view="play">Play</button>
+		<button class="tab" data-view="teams">Teambuilder</button>
+		<button class="tab" data-view="dex">Dex</button>
+	</nav>
+	<div class="me">
+		<span id="build-stamp" title="Which checkout and build this page came from"></span>
+		<span id="username">connecting…</span>
+	</div>
+</header>
+
+<main>
+	<!-- ============================ PLAY ============================ -->
+	<section id="view-play" class="view">
+		<div class="panel">
+			<h2>Play against a bot</h2>
+			<div class="grid">
+				<label>Bot name<input id="bot-name" value="ShadowMaster" maxlength="18" /></label>
+				<label>Format
+					<select id="bot-format">
+						<option value="singles">Singles (your team)</option>
+						<option value="doubles">Doubles (your team)</option>
+						<option value="random">Random Battle</option>
+						<option value="randomdoubles">Random Doubles</option>
+					</select>
+				</label>
+				<label>Difficulty
+					<select id="bot-difficulty">
+						<option value="easy">Easy</option>
+						<option value="normal" selected>Normal</option>
+						<option value="hard">Hard</option>
+					</select>
+				</label>
+				<label>Bot team
+					<select id="bot-teammode">
+						<option value="random">Bot builds its own team</option>
+						<option value="mirror">Bot copies your team</option>
+						<option value="swap">Bot uses your team, you get a random one</option>
+						<option value="custom">You pick both teams</option>
+					</select>
+				</label>
+				<label>Your team
+					<select id="bot-team"></select>
+				</label>
+				<label id="bot-own-team-row" hidden>The bot's team
+					<select id="bot-own-team"></select>
+				</label>
+			</div>
+			<button class="primary" id="start-bot">Start battle</button>
+			<div id="bot-status"></div>
+		</div>
+
+		<div class="panel">
+			<h2>Play against a friend</h2>
+			<p class="hint">Both of you open this page. Enter their name and challenge them.</p>
+			<div class="grid">
+				<label>Their username<input id="pvp-name" placeholder="username" /></label>
+				<label>Format
+					<select id="pvp-format">
+						<option value="singles">Singles</option>
+						<option value="doubles">Doubles</option>
+						<option value="random">Random Battle</option>
+						<option value="randomdoubles">Random Doubles</option>
+					</select>
+				</label>
+				<label>Your team<select id="pvp-team"></select></label>
+			</div>
+			<button class="primary" id="send-challenge">Send challenge</button>
+			<div id="challenges"></div>
+		</div>
+
+		<div class="panel">
+			<h2>Change your name</h2>
+			<div class="grid">
+				<label>Username<input id="name-input" placeholder="your name" /></label>
+			</div>
+			<button id="set-name">Set name</button>
+		</div>
+	</section>
+
+	<!-- ========================= TEAMBUILDER ========================= -->
+	<section id="view-teams" class="view">
+		<div class="panel" id="team-list-panel">
+			<h2>Your teams</h2>
+			<div id="team-list"></div>
+			<button class="primary" id="new-team">New team</button>
+		</div>
+		<div class="panel" id="team-edit-panel" hidden>
+			<div class="row">
+				<label class="grow">Team name<input id="team-name" /></label>
+				<label>Format
+					<select id="team-format">
+						<option value="singles">Singles</option>
+						<option value="doubles">Doubles</option>
+					</select>
+				</label>
+				<label title="Only matters when a bot is handed this team.">Bot plays it
+					<select id="team-bot-order">
+						<option value="free">Freely (switches when it wants)</option>
+						<option value="fixed">Top to bottom, never switches</option>
+					</select>
+				</label>
+			</div>
+			<p class="hint" id="team-count"></p>
+			<div id="team-slots"></div>
+			<div class="row">
+				<button class="primary" id="save-team">Save</button>
+				<button id="copy-team">Duplicate</button>
+				<button class="danger" id="delete-team">Delete</button>
+				<button id="close-team">Back</button>
+			</div>
+			<div id="team-validation"></div>
+
+			<h3 class="port-title">Import / Export</h3>
+			<div id="team-port">
+				<p class="hint">
+					The normal Pok&eacute;mon Showdown text format &mdash; paste a team in, or
+					copy this one out. <strong>(M)</strong> after the species means
+					<em>the bot</em> may Mega Evolve it; on your own team it does nothing,
+					because everything of yours can Mega Evolve anyway.
+				</p>
+				<textarea id="team-port-text" rows="12" spellcheck="false"
+					placeholder="Paste a team here, then press &quot;Replace this team&quot;."></textarea>
+				<div class="row">
+					<button id="team-export">&#8681; Copy this team into the box</button>
+					<button id="team-copy">Copy to clipboard</button>
+					<button class="primary" id="team-import">&#8679; Replace this team</button>
+					<button id="team-import-new">&#8679; Import as a new team</button>
+				</div>
+				<div id="team-port-result"></div>
+			</div>
+		</div>
+	</section>
+
+	<!-- ============================= DEX ============================= -->
+	<section id="view-dex" class="view">
+		<div class="panel">
+			<h2>Fakemon Dex</h2>
+			<input id="dex-search" placeholder="Search Pokémon, moves, abilities, items…" />
+			<div id="dex-results"></div>
+		</div>
+	</section>
+
+	<!-- =========================== BATTLE ============================ -->
+	<section id="view-battle" class="view">
+		<div id="battles"></div>
+	</section>
+</main>
+
+<script src="/data/fakemon-data.js"></script>
+<script src="/fakemon.js"></script>
+<script src="/battle-fx.js"></script>
+<script src="/battle.js"></script>
+</body>
+</html>

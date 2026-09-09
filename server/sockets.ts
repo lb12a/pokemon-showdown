@@ -340,7 +340,19 @@ export class ServerStream extends Streams.ObjectReadWriteStream<string> {
 			const roomidRegex = /^\/(?:[A-Za-z0-9][A-Za-z0-9-]*)\/?$/;
 			const cssServer = new StaticServer('./config');
 			const avatarServer = new StaticServer('./config/avatars');
-			const staticServer = new StaticServer('./server/static');
+			// The custom client is rebuilt by `node build`, so it must never be
+			// cached: an hour-old index.html or fakemon-data.js makes a fresh
+			// pull look like nothing changed at all. `no-store` is deliberate -
+			// `max-age=0` still lets a browser serve a stale copy from its
+			// back/forward cache without asking.
+			// `cacheTime: null` turns off the built-in max-age header so the
+			// explicit one below is the one that ships.
+			const staticServer = new StaticServer('./server/static', {
+				cacheTime: null,
+				headers: { 'cache-control': 'no-store, must-revalidate' },
+			});
+			// Artwork for the custom game; see assets/README.md.
+			const assetServer = new StaticServer('./assets');
 			const staticRequestHandler = (req: http.IncomingMessage, res: http.ServerResponse) => {
 				// console.log(`static rq: ${req.socket.remoteAddress}:${req.socket.remotePort} -> ${req.socket.localAddress}:${req.socket.localPort} - ${req.method} ${req.url} ${req.httpVersion} - ${req.rawHeaders.join('|')}`);
 				req.resume();
@@ -356,14 +368,24 @@ export class ServerStream extends Streams.ObjectReadWriteStream<string> {
 						} else if (req.url.startsWith('/avatars/')) {
 							req.url = req.url.slice(8);
 							server = avatarServer;
+						} else if (req.url.startsWith('/assets/')) {
+							req.url = req.url.slice(7);
+							server = assetServer;
 						} else if (roomidRegex.test(req.url)) {
 							req.url = '/';
 						}
 					}
 
+					const isAsset = server === assetServer;
 					void server.serve(req, res, e => {
 						if (e.status === 404) {
-							void staticServer.serveFile('404.html', 404, {}, req, res);
+							// Artwork that has not been drawn yet falls back to the
+							// placeholder, so the UI never shows a broken image.
+							if (isAsset) {
+								void assetServer.serveFile('placeholder.png', 200, {}, req, res);
+							} else {
+								void staticServer.serveFile('404.html', 404, {}, req, res);
+							}
 							return true;
 						}
 					});

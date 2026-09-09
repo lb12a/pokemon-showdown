@@ -52,4 +52,10 @@ setImmediate(() => {
 	for (const entry of fs.readdirSync('data/text', {withFileTypes: true})) {
 		if (entry.isDirectory()) Dex.loadTextData(entry.name);
 	}
+	// Keep the built-in web client's dex in sync with the Fakemon data.
+	try {
+		require('./tools/fakemon/export-client').buildStaticClientData();
+	} catch (err) {
+		console.log('Could not build the Fakemon client data: ' + err.message);
+	}
 });
