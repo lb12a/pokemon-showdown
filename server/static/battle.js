@@ -350,7 +350,9 @@ const Battle = {
 		// reason attached: "... from its Sugar Berry", "... from Stealth Rock".
 		const because = () => {
 			const from = effectName(kw.from);
-			if (!from || from === 'Recoil') return '';
+			// Some `[from]` values are the engine's own bookkeeping rather than
+			// something a player would recognise, so they are not repeated.
+			if (!from || INTERNAL_CAUSES.has(toID(from))) return '';
 			return ` from ${from}`;
 		};
 
@@ -474,7 +476,8 @@ const Battle = {
 			const data = D.moves[toID(move)];
 			const from = posOf(p[1]);
 			const target = p[3] && p[3] !== 'null' ? posOf(p[3]) : '';
-			const extra = kw.from ? ` (from ${effectName(kw.from)})` : '';
+			const cause = effectName(kw.from);
+			const extra = cause && !INTERNAL_CAUSES.has(toID(cause)) ? ` (from ${cause})` : '';
 			this.push(room, {
 				text: `${this.label(room, p[1])} used ${move}!${extra}`, cls: 'move',
 				hold: BEAT.move,
@@ -1500,6 +1503,15 @@ const Battle = {
 		room.node.querySelector('.battle-log-wrap').prepend(card);
 	},
 };
+
+/**
+ * `[from]` reasons that are engine bookkeeping, not something to tell a player:
+ * a two-turn move continuing, a move calling itself, the usual recoil.
+ */
+const INTERNAL_CAUSES = new Set([
+	'lockedmove', 'recoil', 'drain', 'move', 'ability', 'item', 'psn', 'brn',
+	'twoturnmove', 'chargemove', 'sleeptalk', 'snatch', 'magiccoat',
+]);
 
 /** How a move's target reads in a hover card. */
 const TARGET_WORDS = {
