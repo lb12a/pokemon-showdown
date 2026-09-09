@@ -55,17 +55,25 @@ export class FakemonBot {
 	 * first turn it is out and able to.
 	 */
 	private readonly megaSpecies: Set<ID>;
+	/**
+	 * "Fixed order": the bot leads with the top Pokemon on its team sheet, sends
+	 * the next one down whenever something faints, and never switches by
+	 * choice. The player sets this on the team they hand the bot, so a team
+	 * sheet can be played exactly as it is written.
+	 */
+	private readonly fixedOrder: boolean;
 	private lastMoveWasProtect = false;
 
 	constructor(options: {
 		name?: string, difficulty?: BotDifficulty, seed?: PRNG | PRNGSeed | null, mod?: string,
-		megaSpecies?: string[],
+		megaSpecies?: string[], fixedOrder?: boolean,
 	} = {}) {
 		this.name = options.name || 'Fakemon Bot';
 		this.difficulty = options.difficulty || 'normal';
 		this.dex = Dex.mod(options.mod || 'fakemon');
 		this.prng = PRNG.get(options.seed ?? null);
 		this.megaSpecies = new Set((options.megaSpecies || []).map(name => this.dex.toID(name)));
+		this.fixedOrder = !!options.fixedOrder;
 	}
 
 	/** Feed the bot one line of the public battle log. */
@@ -150,6 +158,11 @@ export class FakemonBot {
 
 	private chooseTeamPreview(request: AnyObject): string {
 		const count = request.maxChosenTeamSize || request.side.pokemon.length;
+		if (this.fixedOrder) {
+			// The sheet is the order: 1, 2, 3, ... exactly as it was written.
+			return `team ${request.side.pokemon.map((_: AnyObject, i: number) => i + 1)
+				.slice(0, count).join('')}`;
+		}
 		const order = request.side.pokemon
 			.map((set: AnyObject, i: number) => ({ i: i + 1, score: this.leadScore(set) }))
 			.sort((a: AnyObject, b: AnyObject) => b.score - a.score)
@@ -178,7 +191,10 @@ export class FakemonBot {
 				options.push({ slot: j + 1, score: this.switchInScore(pokemon[j]) });
 			}
 			if (!options.length) return 'pass';
-			options.sort((a, b) => b.score - a.score);
+			// Fixed order takes the next one down the sheet; otherwise the bot
+			// picks whichever handles what is out best.
+			if (this.fixedOrder) options.sort((a, b) => a.slot - b.slot);
+			else options.sort((a, b) => b.score - a.score);
 			chosen.push(options[0].slot);
 			return `switch ${options[0].slot}`;
 		});
@@ -222,7 +238,9 @@ export class FakemonBot {
 			if (!self || self.condition.endsWith(' fnt') || self.commanding) return 'pass';
 
 			// --- consider switching out of a bad matchup ---------------------
-			if (DIFFICULTY[this.difficulty].switching && !active.trapped && !active.maybeTrapped) {
+			// Fixed order means a Pokemon stays out until it faints.
+			if (!this.fixedOrder &&
+				DIFFICULTY[this.difficulty].switching && !active.trapped && !active.maybeTrapped) {
 				const staying = this.matchupScore(self);
 				const better = this.bestBenchOption(pokemon, actives.length, switchesUsed);
 				if (better && better.score > staying + 45) {

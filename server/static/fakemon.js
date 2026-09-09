@@ -230,7 +230,14 @@ const Teams = {
 		try { localStorage.setItem('fakemon-teams', JSON.stringify(this.all)); } catch {}
 	},
 	blank(name) {
-		return { name: name || 'New team', format: 'singles', sets: [this.blankSet()] };
+		return {
+			name: name || 'New team', format: 'singles',
+			// How a bot handed this team plays it. 'free' is the normal AI;
+			// 'fixed' means it leads with the top Pokemon, sends the next one
+			// down whenever something faints, and never switches by choice.
+			botOrder: 'free',
+			sets: [this.blankSet()],
+		};
 	},
 	blankSet() {
 		return {
@@ -312,7 +319,10 @@ const Teams = {
 	 * gender field empty. On import both `(M)` and `(Mega)` are accepted.
 	 */
 	export(team) {
-		return team.sets.filter(set => set.species).map(set => {
+		// A team-level line, written before the first Pokemon. Other clients
+		// ignore a label they do not know, and this one comes back on import.
+		const header = team.botOrder === 'fixed' ? 'Bot Order: Fixed\n\n' : '';
+		return header + team.sets.filter(set => set.species).map(set => {
 			this.migrate(set);
 			const species = D.pokedex[toID(set.species)];
 			const lines = [];
@@ -339,6 +349,7 @@ const Teams = {
 	import(text) {
 		const problems = [];
 		const sets = [];
+		let botOrder = 'free';
 		let set = null;
 		const statByLabel = {};
 		for (const stat of STATS) statByLabel[STAT_LABEL[stat].toLowerCase()] = stat;
@@ -364,6 +375,12 @@ const Teams = {
 				continue;
 			}
 			const labelled = /^([A-Za-z .]+):\s*(.*)$/.exec(line);
+			// Team-level settings are read whether or not a Pokemon is open, so
+			// the line survives being moved around in the text.
+			if (labelled && labelled[1].trim().toLowerCase() === 'bot order') {
+				botOrder = /fixed/i.test(labelled[2]) ? 'fixed' : 'free';
+				continue;
+			}
 			if (set && labelled) {
 				const key = labelled[1].trim().toLowerCase();
 				const value = labelled[2].trim();
@@ -419,7 +436,7 @@ const Teams = {
 		}
 		finish();
 		if (!sets.length) problems.push('No Pokémon found in that text.');
-		return { sets: sets.slice(0, 6), problems };
+		return { sets: sets.slice(0, 6), problems, botOrder };
 	},
 
 	/**
@@ -684,7 +701,8 @@ const UI = {
 			// exactly one named, it is guaranteed to use it.
 			const megas = botTeam.sets.filter(set => set.species && set.mega)
 				.map(set => toID(set.species));
-			Net.send(`|/fakemonbotteam megas=${megas.join(',')};${Teams.pack(botTeam)}`);
+			Net.send(`|/fakemonbotteam megas=${megas.join(',')};order=` +
+				`${botTeam.botOrder === 'fixed' ? 'fixed' : 'free'};${Teams.pack(botTeam)}`);
 		}
 		setTimeout(() => {
 			Net.send(`|/fakemonbot ${format}, ${name}, ${mode}, ${difficulty}`);
@@ -755,15 +773,28 @@ const UI = {
 		this.editing = index;
 		$('#team-list-panel').hidden = true;
 		$('#team-edit-panel').hidden = false;
-		const team = Teams.all[index];
-		$('#team-name').value = team.name;
-		$('#team-name').oninput = e => { team.name = e.target.value; Teams.save(); };
-		$('#team-format').value = team.format || 'singles';
-		$('#team-format').onchange = e => { team.format = e.target.value; Teams.save(); };
+		// The handlers read `this.editing` when they fire rather than closing
+		// over one team, so importing a different team into the editor cannot
+		// leave them pointing at the old one.
+		$('#team-name').oninput = e => { this.current().name = e.target.value; Teams.save(); };
+		$('#team-format').onchange = e => { this.current().format = e.target.value; Teams.save(); };
+		$('#team-bot-order').onchange = e => {
+			this.current().botOrder = e.target.value;
+			Teams.save();
+			this.renderTeamEditor();
+		};
 		this.renderTeamEditor();
+	},
+	/** The team the editor is on right now. */
+	current() {
+		return Teams.all[this.editing];
 	},
 	renderTeamEditor() {
 		const team = Teams.all[this.editing];
+		// Re-read on every render, so an import shows the team it just loaded.
+		$('#team-name').value = team.name;
+		$('#team-format').value = team.format || 'singles';
+		$('#team-bot-order').value = team.botOrder || 'free';
 		while (team.sets.length < 6) team.sets.push(Teams.blankSet());
 		team.sets.forEach(set => Teams.migrate(set));
 
@@ -779,7 +810,11 @@ const UI = {
 				`<br />Bot Mega Evolution: <strong>${megas.map(escapeHTML).join(', ')}</strong>` +
 				(megas.length === 1 ? ' &mdash; guaranteed, because it is the only one marked.' :
 				' &mdash; the bot picks one of them.') :
-				'');
+				'') +
+				(team.botOrder === 'fixed' ?
+					`<br />A bot given this team plays it <strong>top to bottom</strong> and ` +
+					`never switches by choice. That travels with the copy/paste text as ` +
+					`<code>Bot Order: Fixed</code>.` : '');
 		const wrap = $('#team-slots');
 		wrap.innerHTML = '';
 		team.sets.forEach((set, i) => wrap.appendChild(this.renderSlot(team, set, i)));
@@ -799,7 +834,7 @@ const UI = {
 		$('#team-port-result').textContent = '';
 	},
 	importPort(asNewTeam) {
-		const { sets, problems } = Teams.import($('#team-port-text').value);
+		const { sets, problems, botOrder } = Teams.import($('#team-port-text').value);
 		// Counted before rendering: the editor pads the team out to six slots,
 		// and `sets` is the very array it pads.
 		const imported = sets.length;
@@ -811,10 +846,12 @@ const UI = {
 		if (asNewTeam) {
 			const team = Teams.blank(`Imported ${Teams.all.length + 1}`);
 			team.sets = sets;
+			team.botOrder = botOrder;
 			Teams.all.push(team);
 			this.editing = Teams.all.length - 1;
 		} else {
 			Teams.all[this.editing].sets = sets;
+			Teams.all[this.editing].botOrder = botOrder;
 		}
 		Teams.save();
 		this.portDirty = false;
@@ -860,11 +897,21 @@ const UI = {
 				Teams.save();
 				this.renderTeamEditor();
 			}));
-			grid.appendChild(this.picker('Item', itemOptions(species), set.item, value => {
+			const itemPicker = this.picker('Item', itemOptions(species), set.item, value => {
 				set.item = value;
 				Teams.save();
 				this.renderTeamEditor();
-			}));
+			});
+			// Show what the item looks like, so a held item is recognisable at a
+			// glance here and in battle.
+			const heldItem = D.items[toID(set.item)];
+			if (heldItem) {
+				const preview = el('div', 'item-preview');
+				preview.append(img(ART.item(heldItem.name), heldItem.name),
+					el('span', null, heldItem.desc || heldItem.name));
+				itemPicker.appendChild(preview);
+			}
+			grid.appendChild(itemPicker);
 			grid.appendChild(this.picker('Level', LEVELS, String(clampLevel(set.level)), value => {
 				set.level = clampLevel(value);
 				Teams.save();
@@ -1216,533 +1263,15 @@ const REWARDS = {
 	},
 };
 
-// =====================================================================
-// Battle
-// =====================================================================
-const Battle = {
-	rooms: {},
-	open(roomid) {
-		if (this.rooms[roomid]) return;
-		const node = el('div', 'panel');
-		node.id = `room-${roomid}`;
-		node.innerHTML = `
-			<h2 class="battle-title">Battle</h2>
-			<div class="battle">
-				<div class="field">
-					<div class="side" data-side="foe"><h3>Opponent</h3><div class="active-row"></div></div>
-					<div class="side" data-side="me"><h3>You</h3><div class="active-row"></div></div>
-					<div class="controls"></div>
-				</div>
-				<div class="log"></div>
-			</div>`;
-		$('#battles').prepend(node);
-		this.rooms[roomid] = {
-			node, sides: { p1: {}, p2: {} }, mySide: 'p1',
-			request: null, mega: false, pendingMove: null, active: { p1: [], p2: [] },
-			// In doubles a turn needs one choice per active Pokemon; they are
-			// collected here and sent together.
-			choices: [],
-			// Everything the reward screen needs: who fainted at what level,
-			// and which of your Pokemon were out at the time.
-			knockouts: [],
-			levels: {},
-			roster: [],
-		};
-		UI.show('battle');
-	},
-	close(roomid) {
-		const room = this.rooms[roomid];
-		if (room) room.node.remove();
-		delete this.rooms[roomid];
-	},
-	log(roomid, text, cls) {
-		const room = this.rooms[roomid];
-		if (!room) return;
-		const box = room.node.querySelector('.log');
-		box.appendChild(el('div', cls, text));
-		box.scrollTop = box.scrollHeight;
-	},
+// The battle room itself lives in battle.js, which is loaded after this file.
 
-	line(roomid, line) {
-		if (!this.rooms[roomid]) this.open(roomid);
-		const room = this.rooms[roomid];
-		if (!line.startsWith('|')) return;
-		const p = line.slice(1).split('|');
-		switch (p[0]) {
-		case 'player': {
-			if (p[2] && toID(p[2]) === toID(Net.name)) room.mySide = p[1];
-			room.sides[p[1]].name = p[2];
-			this.title(roomid);
-			break;
-		}
-		case 'teamsize':
-			room.sides[p[1]].size = Number(p[2]);
-			break;
-		case 'turn':
-			this.log(roomid, `Turn ${p[1]}`, 'turn');
-			break;
-		case 'switch': case 'drag': case 'replace': case 'detailschange': {
-			const pos = p[1].split(':')[0];
-			const nick = p[1].split(': ')[1];
-			const species = p[2].split(',')[0].trim();
-			const mon = this.mon(room, pos);
-			// "Species, L50, M" - the level is only in the switch details.
-			const level = Number(/L(\d+)/.exec(p[2])?.[1]) || 100;
-			Object.assign(mon, { species, nick, level, hp: 100, maxhp: 100, status: '', fainted: false });
-			room.levels[species] = level;
-			if (pos.slice(0, 2) === room.mySide && !room.roster.includes(species)) {
-				room.roster.push(species);
-			}
-			if (p[0] !== 'detailschange') mon.mega = false;
-			this.setHP(mon, p[3]);
-			if (p[0] === 'switch' || p[0] === 'drag') {
-				this.log(roomid, `${this.who(room, pos)} sent out ${species}!`);
-			} else {
-				this.log(roomid, `${species} changed forme!`);
-			}
-			this.render(roomid);
-			break;
-		}
-		case '-damage': case '-heal': case '-sethp': {
-			const mon = this.mon(room, p[1].split(':')[0]);
-			this.setHP(mon, p[2]);
-			this.render(roomid);
-			break;
-		}
-		case '-status': {
-			const mon = this.mon(room, p[1].split(':')[0]);
-			mon.status = p[2];
-			this.log(roomid, `${mon.species} was afflicted with ${p[2].toUpperCase()}.`);
-			this.render(roomid);
-			break;
-		}
-		case '-curestatus': {
-			const mon = this.mon(room, p[1].split(':')[0]);
-			mon.status = '';
-			this.render(roomid);
-			break;
-		}
-		case 'faint': {
-			const pos = p[1].split(':')[0];
-			const mon = this.mon(room, pos);
-			mon.fainted = true;
-			mon.hp = 0;
-			if (pos.slice(0, 2) !== room.mySide) {
-				// Everything of yours that is out shares the experience, which is
-				// how the games have counted participants since Gen 5.
-				room.knockouts.push({
-					species: mon.species,
-					level: mon.level || 100,
-					participants: (room.active[room.mySide] || [])
-						.filter(active => active && !active.fainted).map(active => active.species),
-				});
-			}
-			this.log(roomid, `${mon.species} fainted!`, 'faint');
-			this.render(roomid);
-			break;
-		}
-		case 'move':
-			this.log(roomid, `${p[1].split(': ')[1] || p[1]} used ${p[2]}!`);
-			break;
-		case '-mega': {
-			const mon = this.mon(room, p[1].split(':')[0]);
-			mon.mega = true;
-			this.log(roomid,
-				`${p[2]} Mega Evolved${p[3] && p[3] !== 'Mega Evolution' ? ` using ${p[3]}` : ''}!`, 'turn');
-			this.render(roomid);
-			break;
-		}
-		case '-supereffective': this.log(roomid, `It's super effective!`); break;
-		case '-resisted': this.log(roomid, `It's not very effective…`); break;
-		case '-crit': this.log(roomid, `A critical hit!`); break;
-		case '-immune': this.log(roomid, `It had no effect.`); break;
-		// Without these a move whose condition was not met (Aurora Curtain
-		// outside hail, say) just reads as "used it" and nothing happening.
-		case '-fail': this.log(roomid, `But it failed!`); break;
-		case '-miss': this.log(roomid, `The attack missed!`); break;
-		case '-notarget': this.log(roomid, `There was no target.`); break;
-		case '-weather':
-			if (p[1] !== 'none') this.log(roomid, `Weather: ${p[1]}`, 'sys');
-			break;
-		case '-fieldstart': case '-fieldend': case '-sidestart': case '-sideend': {
-			// `|-sidestart|p1: Name|move: Spikes` -> "Spikes started on your side."
-			const name = (p[p.length - 1] || '').replace(/^(move|ability|item):\s*/, '');
-			const gone = p[0].endsWith('end');
-			const where = p[0].includes('side') ?
-				` on ${(p[1] || '').startsWith(room.mySide) ? 'your' : 'the opposing'} side` : '';
-			this.log(roomid, `${name}${where} ${gone ? 'wore off' : 'started'}.`, 'sys');
-			break;
-		}
-		case '-boost': case '-unboost': {
-			const mon = this.mon(room, p[1].split(':')[0]);
-			const stat = p[2].toUpperCase();
-			// The engine still sends the line when a stat is already at its
-			// limit, with an amount of 0 - "fell by 0" is not what happened.
-			if (Number(p[3]) === 0) {
-				this.log(roomid, `${mon.species}'s ${stat} won't go any ` +
-				`${p[0] === '-boost' ? 'higher' : 'lower'}!`);
-				break;
-			}
-			this.log(roomid, `${mon.species}'s ${stat} ` +
-			`${p[0] === '-boost' ? 'rose' : 'fell'} by ${p[3]}.`);
-			break;
-		}
-		case '-ability':
-			this.log(roomid, `${p[1].split(': ')[1] || p[1]}'s ${p[2]} took effect!`, 'sys');
-			break;
-		case '-item': case '-enditem':
-			this.log(roomid, `${p[1].split(': ')[1] || p[1]}: ${p[2]}`, 'sys');
-			break;
-		case '-message': case 'message':
-			this.log(roomid, p.slice(1).join(' '), 'sys');
-			break;
-		case 'win':
-			this.log(roomid, `${p[1]} won the battle!`, 'win');
-			room.request = null;
-			this.renderControls(roomid);
-			this.showRewards(roomid, p[1]);
-			break;
-		case 'tie':
-			this.log(roomid, `The battle ended in a tie.`, 'win');
-			break;
-		case 'request': {
-			if (!p[1]) break;
-			try { room.request = JSON.parse(p.slice(1).join('|')); } catch { break; }
-			room.mega = false;
-			room.pendingMove = null;
-			room.choices = [];
-			this.renderControls(roomid);
-			break;
-		}
-		case 'error':
-			this.log(roomid, p.slice(1).join(' '), 'faint');
-			this.renderControls(roomid);
-			break;
-		}
-	},
-	/**
-	 * The win screen: what this battle would have been worth in a real game.
-	 * Nothing is stored or spent - it is shown because it is the number a
-	 * trainer would care about.
-	 */
-	showRewards(roomid, winner) {
-		const room = this.rooms[roomid];
-		if (!room || room.rewardsShown) return;
-		room.rewardsShown = true;
-		const mine = room.sides[room.mySide]?.name;
-		if (mine && winner && toID(winner) !== toID(mine)) return;
-		if (!room.knockouts.length) return;
-
-		const earned = new Map();
-		for (const species of room.roster) earned.set(species, 0);
-		for (const ko of room.knockouts) {
-			const participants = ko.participants.length || 1;
-			for (const species of ko.participants) {
-				const level = room.levels[species] || 100;
-				earned.set(species, (earned.get(species) || 0) +
-				REWARDS.exp(ko.species, ko.level, level, participants));
-			}
-		}
-		const lastLevel = room.knockouts[room.knockouts.length - 1].level;
-		const money = REWARDS.prizeMoney(lastLevel);
-
-		const box = el('div', 'rewards');
-		box.appendChild(el('h3', null, 'Spoils'));
-		const table = el('table');
-		const head = el('tr');
-		for (const label of ['Pokémon', 'Level', 'EXP']) head.appendChild(el('th', null, label));
-		table.appendChild(head);
-		for (const [species, exp] of earned) {
-			if (!exp) continue;
-			const row = el('tr');
-			row.append(
-				el('td', null, species),
-				el('td', null, `L${room.levels[species] || 100}`),
-				el('td', null, `${exp}`)
-			);
-			table.appendChild(row);
-		}
-		box.appendChild(table);
-		box.appendChild(el('div', 'statline', `Prize money: ₽${money}`));
-		box.appendChild(el('div', 'hint',
-			'Worked out with the normal Pokémon formulas; nothing is saved between battles.'));
-		room.node.querySelector('.controls').appendChild(box);
-	},
-	title(roomid) {
-		const room = this.rooms[roomid];
-		const foe = room.mySide === 'p1' ? 'p2' : 'p1';
-		room.node.querySelector('.battle-title').textContent =
-			`${room.sides[room.mySide].name || 'You'} vs ${room.sides[foe].name || '???'}`;
-		room.node.querySelector('[data-side="foe"] h3').textContent =
-			room.sides[foe].name || 'Opponent';
-		room.node.querySelector('[data-side="me"] h3').textContent =
-			room.sides[room.mySide].name || 'You';
-	},
-	mon(room, pos) {
-		const side = pos.slice(0, 2);
-		const slot = pos.charCodeAt(2) - 97;
-		room.active[side] = room.active[side] || [];
-		if (!room.active[side][slot]) room.active[side][slot] = { species: '?', hp: 100, maxhp: 100 };
-		return room.active[side][slot];
-	},
-	who(room, pos) {
-		return room.sides[pos.slice(0, 2)].name || pos;
-	},
-	setHP(mon, condition) {
-		if (!condition) return;
-		if (condition.includes('fnt')) {
-			mon.hp = 0;
-			mon.fainted = true;
-			return;
-		}
-		const [hp, status] = condition.split(' ');
-		const [cur, max] = hp.split('/').map(Number);
-		mon.hp = cur;
-		mon.maxhp = max || 100;
-		if (status) mon.status = status;
-	},
-
-	render(roomid) {
-		const room = this.rooms[roomid];
-		const foe = room.mySide === 'p1' ? 'p2' : 'p1';
-		this.renderSide(room, foe, room.node.querySelector('[data-side="foe"] .active-row'), true);
-		this.renderSide(room, room.mySide, room.node.querySelector('[data-side="me"] .active-row'), false);
-	},
-	renderSide(room, side, container, isFoe) {
-		container.innerHTML = '';
-		(room.active[side] || []).forEach((mon, slot) => {
-			if (!mon) return;
-			const card = el('div', `mon${mon.fainted ? ' fainted' : ''}`);
-			const head = el('div', 'mon-head');
-			head.appendChild(img(ART.pokemon(mon.species), mon.species));
-			const info = el('div', 'grow');
-			info.appendChild(el('div', 'mon-name', mon.species));
-			const badges = el('div');
-			const species = D.pokedex[toID(mon.species)];
-			if (species) {
-				for (const type of species.types) badges.appendChild(el('span', `type type-${type}`, type));
-			}
-			if (mon.mega) badges.appendChild(el('span', 'badge mega', 'MEGA'));
-			if (mon.status) badges.appendChild(el('span', 'badge status', mon.status.toUpperCase()));
-			info.appendChild(badges);
-			head.appendChild(info);
-			card.appendChild(head);
-
-			const pct = Math.max(0, Math.round(mon.hp / (mon.maxhp || 100) * 100));
-			const bar = el('div', `hpbar${pct <= 20 ? ' low' : pct <= 50 ? ' mid' : ''}`);
-			const fill = el('div');
-			fill.style.width = `${pct}%`;
-			bar.appendChild(fill);
-			card.append(bar, el('div', 'statline',
-				mon.maxhp === 100 ? `${pct}%` : `${mon.hp}/${mon.maxhp}`));
-
-			// Doubles targeting: click the Pokemon to aim at - a foe, or your own
-			// partner. Showdown numbers your own side with negative slots.
-			if (room.pendingMove && !mon.fainted &&
-				isLegalTarget(room.pendingMove, isFoe, slot)) {
-				card.classList.add('targetable');
-				card.onclick = () => this.chooseTarget(room, isFoe ? slot + 1 : -(slot + 1));
-			}
-			container.appendChild(card);
-		});
-		if (!container.children.length) container.appendChild(el('div', 'hint', 'No active Pokémon.'));
-	},
-
-	renderControls(roomid) {
-		const room = this.rooms[roomid];
-		const box = room.node.querySelector('.controls');
-		box.innerHTML = '';
-		const request = room.request;
-		if (!request) {
-			box.appendChild(el('div', 'hint', 'Waiting…'));
-			this.render(roomid);
-			return;
-		}
-		if (request.wait) {
-			box.appendChild(el('div', 'hint', 'Waiting for the opponent…'));
-			return;
-		}
-		if (request.teamPreview) {
-			box.appendChild(el('div', 'prompt', 'Team preview'));
-			const go = el('button', 'primary', 'Start battle');
-			go.onclick = () => this.choose(roomid, 'default');
-			box.appendChild(go);
-			return;
-		}
-
-		if (request.forceSwitch) {
-			// Slots that do not have to switch are filled in automatically; if
-			// that completes the turn, it is sent right away.
-			if (this.submitIfReady(roomid)) {
-				this.renderControls(roomid);
-				return;
-			}
-			const grid = this.switchGrid(roomid, request, true, room);
-			// Nothing left to send out for this slot: the only legal choice is pass.
-			if (!grid.querySelector('button:not(:disabled)')) {
-				this.choose(roomid, 'pass');
-				return;
-			}
-			box.appendChild(el('div', 'prompt',
-				this.slotPrompt(request, room, 'Choose a Pokémon to send out')));
-			box.appendChild(grid);
-			return;
-		}
-		if (!request.active) return;
-
-		const index = room.choices.length;
-		const active = request.active[index];
-		const self = request.side.pokemon[index];
-		// An empty or fainted slot takes no action: the server counts choices
-		// against unfainted Pokemon, so it must be `pass`.
-		if (!active || !self || self.condition.endsWith(' fnt') || active.commanding) {
-			this.choose(roomid, 'pass');
-			return;
-		}
-		const isDoubles = request.active.length > 1;
-
-		if (isDoubles) {
-			box.appendChild(el('div', 'prompt',
-				this.slotPrompt(request, room, 'Choose a move')));
-		}
-
-		if (room.pendingMove) {
-			const allyOnly = ['adjacentAlly', 'adjacentAllyOrSelf'].includes(room.pendingMove.target);
-			const foeOnly = room.pendingMove.target === 'adjacentFoe';
-			box.appendChild(el('div', 'prompt',
-				allyOnly ? 'Click one of your own Pokémon to target' :
-				foeOnly ? 'Click an opposing Pokémon to target' :
-				'Click a Pokémon to target — your own partner counts'));
-			const cancel = el('button', null, 'Cancel');
-			cancel.onclick = () => {
-				room.pendingMove = null;
-				this.renderControls(roomid);
-				this.render(roomid);
-			};
-			box.appendChild(cancel);
-			this.render(roomid);
-			return;
-		}
-
-		const moves = el('div', 'move-grid');
-		(active.moves || []).forEach((move, i) => {
-			const data = D.moves[move.id] || {};
-			const btn = el('button', 'move-btn');
-			btn.disabled = !!move.disabled;
-			btn.appendChild(el('span', 'mv-name', move.move));
-			btn.appendChild(el('span', 'mv-meta',
-				`${data.type || ''} ${data.category || ''} · ` +
-				`${data.basePower ? `Pow ${data.basePower} · ` : ''}` +
-				`PP ${move.pp ?? data.pp ?? '-'}/${move.maxpp ?? data.pp ?? '-'}`));
-			btn.title = data.desc || '';
-			btn.onclick = () => {
-				// The request's own target type decides whether a target is legal.
-				const needsTarget = isDoubles && CHOOSABLE_TARGETS.includes(move.target);
-				if (needsTarget) {
-					room.pendingMove = { index: i + 1, target: move.target, slot: index };
-					this.renderControls(roomid);
-					this.render(roomid);
-				} else {
-					this.choose(roomid, `move ${i + 1}${room.mega ? ' mega' : ''}`);
-				}
-			};
-			moves.appendChild(btn);
-		});
-		box.appendChild(moves);
-
-		// Mega Evolution (spec 13): always visible, so the player can see whether
-		// it is still available and what it will do.
-		const megaBtn = el('button', 'mega-toggle');
-		const canMega = !!active.canMegaEvo;
-		megaBtn.disabled = !canMega;
-		megaBtn.setAttribute('aria-pressed', String(room.mega));
-		const speciesName = (self.details || '').split(',')[0];
-		const mega = D.megas[toID(speciesName)];
-		megaBtn.textContent = !canMega ? 'Mega Evolution used' :
-			room.mega ? '★ Mega Evolution ARMED — pick a move' :
-			mega && toID(self.item) === mega.stoneId ?
-				`Mega Evolve into ${mega.forme} (${mega.ability})` :
-				'Mega Evolve (+20 to all stats)';
-		megaBtn.onclick = () => { room.mega = !room.mega; this.renderControls(roomid); };
-		box.appendChild(megaBtn);
-
-		if (!active.trapped && !active.maybeTrapped) {
-			box.appendChild(el('h3', null, 'Switch'));
-			box.appendChild(this.switchGrid(roomid, request, false, room));
-		}
-		this.render(roomid);
-	},
-	/** "Pokemon 2 of 2: ..." while collecting a doubles turn. */
-	slotPrompt(request, room, text) {
-		const total = request.forceSwitch ? request.forceSwitch.length : request.active.length;
-		if (total < 2) return text;
-		const mon = request.side.pokemon[room.choices.length];
-		const name = (mon?.details || '').split(',')[0] || `Slot ${room.choices.length + 1}`;
-		return `${name} (${room.choices.length + 1}/${total}): ${text}`;
-	},
-	switchGrid(roomid, request, forced, room) {
-		const grid = el('div', 'switch-grid');
-		const activeCount = request.forceSwitch ? request.forceSwitch.length : (request.active || []).length;
-		// A Pokemon already chosen this turn cannot be sent out twice.
-		const taken = new Set(room.choices
-			.filter(choice => choice.startsWith('switch '))
-			.map(choice => Number(choice.slice(7))));
-		request.side.pokemon.forEach((mon, i) => {
-			if (i < activeCount && !forced) return;
-			const fainted = mon.condition.endsWith(' fnt');
-			const btn = el('button');
-			btn.disabled = fainted || i < activeCount || taken.has(i + 1);
-			btn.textContent = `${(mon.details || '').split(',')[0]}${fainted ? ' (fnt)' : ''}`;
-			btn.onclick = () => this.choose(roomid, `switch ${i + 1}`);
-			grid.appendChild(btn);
-		});
-		return grid;
-	},
-	chooseTarget(room, slot) {
-		const pending = room.pendingMove;
-		room.pendingMove = null;
-		const roomid = Object.keys(this.rooms).find(id => this.rooms[id] === room);
-		this.choose(roomid, `move ${pending.index} ${slot}${room.mega ? ' mega' : ''}`);
-	},
-	choose(roomid, choice) {
-		const room = this.rooms[roomid];
-		const request = room.request;
-		if (!request) return;
-		if (request.teamPreview) {
-			Net.sendTo(roomid, `/choose ${choice}|${request.rqid}`);
-			room.request = null;
-			this.renderControls(roomid);
-			return;
-		}
-		room.choices.push(choice);
-		// In doubles, wait until every active Pokemon has a choice.
-		this.submitIfReady(roomid);
-		this.renderControls(roomid);
-		this.render(roomid);
-	},
-	/**
-	 * Fill in `pass` for slots that need no choice and send the turn once every
-	 * active Pokemon has one. Returns true if the turn was sent.
-	 */
-	submitIfReady(roomid) {
-		const room = this.rooms[roomid];
-		const request = room.request;
-		if (!request) return false;
-		if (request.forceSwitch) {
-			while (room.choices.length < request.forceSwitch.length &&
-				!request.forceSwitch[room.choices.length]) {
-				room.choices.push('pass');
-			}
-		}
-		const needed = request.forceSwitch ? request.forceSwitch.length : (request.active || []).length;
-		if (room.choices.length < needed) return false;
-		Net.sendTo(roomid, `/choose ${room.choices.join(', ')}|${request.rqid}`);
-		room.request = null;
-		room.choices = [];
-		room.mega = false;
-		return true;
-	},
-};
+// What battle.js (loaded after this file) reaches for. Naming it here keeps
+// the boundary between the two files explicit rather than implied.
+Object.assign(window, {
+	D, ART, img, el, $, toID, escapeHTML,
+	STATS, STAT_LABEL, NATURES, finalStat,
+	CHOOSABLE_TARGETS, isLegalTarget, REWARDS,
+});
 
 // =====================================================================
 window.addEventListener('DOMContentLoaded', () => {

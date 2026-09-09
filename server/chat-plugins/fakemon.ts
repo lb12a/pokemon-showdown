@@ -31,19 +31,25 @@ const DIFFICULTIES: BotDifficulty[] = ['easy', 'normal', 'hard'];
  * client sends `/fakemonbotteam` first and the battle command picks it up here.
  * One entry per player, replaced by the next upload and dropped on logout.
  */
-const botTeams = new Map<ID, { team: string, megaSpecies: string[] }>();
+const botTeams = new Map<ID, { team: string, megaSpecies: string[], fixedOrder: boolean }>();
 
 /**
- * `megas=<ids>;<packed team>`. The packed format uses `|` and `]` and never a
- * semicolon, so this prefix cannot collide with a real team.
+ * `megas=<ids>;order=<free|fixed>;<packed team>`. The packed format uses `|`
+ * and `]` and never a semicolon, so these prefixes cannot collide with a real
+ * team. Both prefixes are optional, so an older client still works.
  */
 function parseBotTeam(input: string) {
-	const match = /^megas=([^;]*);([\s\S]*)$/.exec(input);
-	if (!match) return { team: input, megaSpecies: [] as string[] };
-	return {
-		team: match[2],
-		megaSpecies: match[1].split(',').map(toID).filter(Boolean),
-	};
+	let rest = input;
+	let megaSpecies: string[] = [];
+	let fixedOrder = false;
+	for (;;) {
+		const match = /^(megas|order)=([^;]*);([\s\S]*)$/.exec(rest);
+		if (!match) break;
+		if (match[1] === 'megas') megaSpecies = match[2].split(',').map(toID).filter(Boolean);
+		else fixedOrder = toID(match[2]) === 'fixed';
+		rest = match[3];
+	}
+	return { team: rest, megaSpecies, fixedOrder };
 }
 
 /** Descriptions live on the raw data entries, not on the runtime classes. */
@@ -119,6 +125,7 @@ export const commands: Chat.ChatCommands = {
 
 		let preparedBotTeam: string | undefined;
 		let megaSpecies: string[] = [];
+		let fixedOrder = false;
 		if (teamMode === 'custom' && !generatesTeams) {
 			const prepared = botTeams.get(user.id);
 			if (!prepared) {
@@ -129,6 +136,7 @@ export const commands: Chat.ChatCommands = {
 			}
 			preparedBotTeam = prepared.team;
 			megaSpecies = prepared.megaSpecies;
+			fixedOrder = prepared.fixedOrder;
 			const problems = TeamValidator.get(format.id).validateTeam(Teams.unpack(preparedBotTeam));
 			if (problems) {
 				return this.errorReply(`The bot's team cannot battle: ${problems.join(' ')}`);
@@ -149,7 +157,7 @@ export const commands: Chat.ChatCommands = {
 			bots: {
 				p2: {
 					name: botName, team: botTeam,
-					bot: new FakemonBot({ name: botName, difficulty, megaSpecies }),
+					bot: new FakemonBot({ name: botName, difficulty, megaSpecies, fixedOrder }),
 				},
 			},
 			isPrivate: true,
@@ -167,7 +175,7 @@ export const commands: Chat.ChatCommands = {
 			botTeams.delete(user.id);
 			return this.sendReply(`Cleared the team you had prepared for the bot.`);
 		}
-		const { team: packed, megaSpecies } = parseBotTeam(input);
+		const { team: packed, megaSpecies, fixedOrder } = parseBotTeam(input);
 		const team = Teams.unpack(packed);
 		if (!team?.length) return this.errorReply(`That is not a readable packed team.`);
 		const known = new Set<string>(team.map(set => toID(set.species || set.name)));
@@ -175,16 +183,18 @@ export const commands: Chat.ChatCommands = {
 		if (unknown.length) {
 			return this.errorReply(`Not on that team, so it cannot Mega Evolve: ${unknown.join(', ')}.`);
 		}
-		botTeams.set(user.id, { team: packed, megaSpecies });
+		botTeams.set(user.id, { team: packed, megaSpecies, fixedOrder });
 		this.sendReply(
 			`Stored a ${team.length}-Pokemon team for the bot` +
-			(megaSpecies.length === 1 ? `; it will always Mega Evolve ${megaSpecies[0]}.` :
-			megaSpecies.length ? `; it may Mega Evolve ${megaSpecies.join(', ')}.` :
-			`; it may Mega Evolve whichever it likes.`)
+			(megaSpecies.length === 1 ? `; it will always Mega Evolve ${megaSpecies[0]}` :
+			megaSpecies.length ? `; it may Mega Evolve ${megaSpecies.join(', ')}` :
+			`; it may Mega Evolve whichever it likes`) +
+			(fixedOrder ? `; it plays them top to bottom and never switches.` : `.`)
 		);
 	},
 	fakemonbotteamhelp: [
-		`/fakemonbotteam [megas=ids;][packed team] - Hand the bot a team you built, for /fakemonbot's "custom" mode.`,
+		`/fakemonbotteam [megas=ids;][order=fixed;][packed team] - Hand the bot a team you built, for /fakemonbot's "custom" mode.`,
+		`order=fixed makes the bot lead with the top Pokemon, send the next one down on a faint, and never switch by choice.`,
 		`The optional megas= list names which of them may Mega Evolve; with exactly one named it always will.`,
 		`Sending it without a team forgets the stored one. The built-in client does this for you.`,
 	],

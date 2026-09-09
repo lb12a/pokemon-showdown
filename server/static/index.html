@@ -106,6 +106,12 @@
 						<option value="doubles">Doubles</option>
 					</select>
 				</label>
+				<label title="Only matters when a bot is handed this team.">Bot plays it
+					<select id="team-bot-order">
+						<option value="free">Freely (switches when it wants)</option>
+						<option value="fixed">Top to bottom, never switches</option>
+					</select>
+				</label>
 			</div>
 			<p class="hint" id="team-count"></p>
 			<div id="team-slots"></div>
@@ -155,5 +161,7 @@
 
 <script src="/data/fakemon-data.js"></script>
 <script src="/fakemon.js"></script>
+<script src="/battle-fx.js"></script>
+<script src="/battle.js"></script>
 </body>
 </html>

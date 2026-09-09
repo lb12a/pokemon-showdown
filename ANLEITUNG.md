@@ -461,6 +461,70 @@ Nebenbei behoben: ein Pokémon auf der Bank, das seine Mega-Form zurücksetzt,
 wurde vom Bot als Ziel auf dem Feld verbucht — dadurch hat er in Doppelkämpfen
 einen ungültigen Zug geschickt und der Kampf blieb stehen.
 
+### I · Bilder, Animationen und Kampfmeldungen
+
+Alles Neue steckt im Kampf selbst, also am schnellsten so zu sehen:
+
+1. **Play** → *Start battle*. Der Kampf läuft jetzt **animiert ab wie auf
+   Showdown**: die Pokémon werden sichtbar herausgeschickt, jeder Angriff
+   bekommt seine eigene Animation, und links unten läuft der Text mit.
+2. Rechts oben kannst du das Tempo umstellen (**Slow / Normal / Fast /
+   Instant**). *Instant* überspringt alle Animationen — praktisch, wenn du nur
+   schnell testen willst.
+
+**Was du sehen solltest:**
+
+| | |
+| --- | --- |
+| Echte Bilder | alle 169 Pokémon (und die 20 Mega-Formen) zeigen deine Grafiken — im Kampf, im Teambuilder und im Dex |
+| Item-Bilder | jedes der 240 Items hat ein eigenes Pixelart-Icon. Im Teambuilder unter *Item*, im Kampf am Namensschild und als Pop-up, wenn es wirkt |
+| 54 Angriffsanimationen | 18 Typen × *Physical / Special / Status*. Feuer steigt auf, Wasser tropft, Elektro schießt einen Blitzstrahl, Gestein fällt herunter … |
+| Mega-Entwicklung | Spirale aus Funken, Aufleuchten, dann die neue Form |
+| Statuswerte | grüne Pfeile nach oben, rote nach unten, plus ein Chip am Namensschild (`Atk +2`) |
+| Status | Verbrennung, Paralyse, Schlaf … färben das Pokémon kurz ein und stehen als Kürzel am Schild |
+| Wetter, Felder, Räume | eigene Banner quer über das Feld, passende Partikel und eine Einfärbung der ganzen Szene; unten am Feldrand stehen die aktiven Effekte als kleine Chips |
+
+**Nichts bleibt unerklärt.** Jede Zeile, die der Kampfserver schickt, bekommt
+einen Satz im Log — Schaden, Heilung, Statuswerte, Items, Fähigkeiten, verfehlte
+Angriffe, Immunitäten, Fesseln, Rückstoß, alles. Der automatische Test dazu
+spielt echte Kämpfe und prüft, dass es für **jede** vorkommende Protokollzeile
+eine Meldung gibt.
+
+### J · Infos beim Drüberfahren
+
+Mit der Maus über etwas fahren (oder mit Tab hinnavigieren):
+
+* **Dein eigenes Pokémon** → Typen, Level, genaue Werte, Fähigkeit, Item, Attacken.
+* **Deine Attacken-Knöpfe** → Typ, Kategorie, Stärke, Genauigkeit, AP,
+  Priorität, Ziel und die Beschreibung.
+* **Das gegnerische Pokémon** → Name, Typen, Level, HP in Prozent, **bisher
+  gesehene Attacken**, **mögliche Fähigkeiten** (und sobald eine gewirkt hat,
+  genau diese, mit „seen"), das Item sobald es sich gezeigt hat — und statt
+  exakter Werte eine **Spanne**: von 0 EVs/0 IVs mit hinderndem Wesen bis
+  252/31 mit förderndem. Genau wie auf Showdown wird nichts verraten, was du
+  nicht selbst ausrechnen könntest.
+* **Deine Bank-Pokémon** unter *„or switch to"* → dasselbe für die Reserve.
+
+### K · Der Bot spielt das Team von oben nach unten
+
+1. **Teambuilder** → Team öffnen → oben rechts **„Bot plays it"** auf
+   *„Top to bottom, never switches"* stellen.
+2. Unter der Teamübersicht steht dann der Hinweis, und im Import/Export-Feld
+   erscheint ganz oben die Zeile:
+
+   ```
+   Bot Order: Fixed
+   ```
+
+   Die Zeile wird beim Kopieren mitgenommen und beim Einfügen wieder gelesen —
+   die Einstellung hängt also am Team, nicht am Browser.
+3. **Play** → *Bot team* auf **„You pick both teams"**, bei *The bot's team*
+   dieses Team wählen → **Start battle**.
+
+**Erwartet:** der Bot schickt Pokémon 1 zuerst, bei jedem K.o. das nächste von
+oben, und wechselt nie freiwillig. Ohne die Einstellung sucht er sich wie
+bisher das jeweils beste aus.
+
 ## 3. Automatisch prüfen, ohne Klicken
 
 Neues PowerShell-Fenster, wieder **im Ordner `pokemon-showdown`**:
@@ -476,7 +540,7 @@ normal — die Bilder sind noch Platzhalter.
 npx mocha
 ```
 
-Muss `2460 passing` melden, `0 failing`.
+Muss `2465 passing` melden, `0 failing`.
 
 ---
 
@@ -484,6 +548,18 @@ Muss `2460 passing` melden, `0 failing`.
 
 Ausführlich steht das in [`DATA_GUIDE.md`](DATA_GUIDE.md) unter *„The two
 questions everyone asks"*. Kurzfassung:
+
+**Bilder austauschen** → einfach die Datei in `assets/` ersetzen; die Namen
+stehen in [`assets/README.md`](assets/README.md). Für einen ganzen Schwung
+neuer Pokémon-Bilder:
+
+```powershell
+python3 tools/fakemon/art/install-pokemon-art.py <Ordner mit den PNGs>
+```
+
+Die Item-Icons zeichnet `python3 tools/fakemon/art/make_items.py` neu; welche
+Form ein Item bekommt, steht dort in `SHAPE_WORDS` (ein Wort im Namen bestimmt
+sie), die Farbe in `HUE_WORDS`.
 
 **Fähigkeiten eines Pokémon ändern** → `tools/fakemon/build.py`,
 Tabelle `SPECIES_FIXUPS`:

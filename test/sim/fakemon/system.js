@@ -1082,6 +1082,18 @@ describe('Fakemon: built-in web client', () => {
 	const fs = require('fs');
 	const path = require('path');
 	const bundlePath = path.resolve(__dirname, '../../../server/static/data/fakemon-data.js');
+	/** Every protocol line a handful of real battles produced. */
+	const collectedProtocol = [];
+
+	before(async function () {
+		this.timeout(30000);
+		for (const format of ['[Fakemon] Random Battle', '[Fakemon] Random Doubles Battle']) {
+			for (const seed of [1, 2, 3]) {
+				const result = await runBotBattle(format, 'hard', seed);
+				collectedProtocol.push(...result.lines);
+			}
+		}
+	});
 
 	it('should ship a data bundle for the client', () => {
 		assert(fs.existsSync(bundlePath),
@@ -1118,6 +1130,33 @@ describe('Fakemon: built-in web client', () => {
 		assert(finals.length > 20, `expected many final evolutions, found ${finals.length}`);
 	});
 
+	it('should have a sentence for every protocol line a battle can send', () => {
+		// The client's promise is that nothing happens without an explanation
+		// next to it. This checks that literally: play battles, collect every
+		// distinct protocol command the sim produced, and make sure the client
+		// has a branch for each one.
+		const client = fs.readFileSync(
+			path.resolve(__dirname, '../../../server/static/battle.js'), 'utf8');
+		const handled = new Set([...client.matchAll(/case '([^']+)':/g)].map(m => m[1]));
+		// Lines that carry no information for a player. Everything else must be
+		// handled explicitly.
+		const ignorable = new Set([
+			'', 't:', 'j', 'J', 'l', 'L', 'c', 'c:', 'n', 'b', 'html', 'uhtml',
+			'raw', 'init', 'title', 'users', 'seed', 'choice', 'debug', 'split',
+			'badge', 'chat', 'join', 'leave', 'gen', 'callback',
+		]);
+		const seen = new Set();
+		for (const line of collectedProtocol) {
+			if (!line.startsWith('|')) continue;
+			const cmd = line.slice(1).split('|')[0];
+			seen.add(cmd);
+		}
+		assert(seen.size > 25, `expected a rich protocol sample, saw ${seen.size} kinds`);
+		const missing = [...seen].filter(cmd => !handled.has(cmd) && !ignorable.has(cmd));
+		assert.equal(missing.length, 0,
+			`the battle log would not explain these: ${missing.join(', ')}`);
+	});
+
 	it('should not redirect the browser to the official client', () => {
 		const html = fs.readFileSync(
 			path.resolve(__dirname, '../../../server/static/index.html'), 'utf8');
@@ -1137,14 +1176,40 @@ describe('Fakemon: built-in web client', () => {
 	it('should read the server replies that arrive as private messages', () => {
 		// A command sent outside a room is answered with `|pm| you|~|/error ...`.
 		// Dropping those is what made a refused battle look like nothing happening.
-		const client = fs.readFileSync(
+		const shell = fs.readFileSync(
 			path.resolve(__dirname, '../../../server/static/fakemon.js'), 'utf8');
-		assert(/\/\(error\|text\|raw\|html\)/.test(client),
+		assert(/\/\(error\|text\|raw\|html\)/.test(shell),
 			'the client must read /error and /text replies');
-		assert(client.includes('serverProblem'), 'refusals need their own path');
-		for (const line of ["case '-fail'", "case '-miss'", "case '-notarget'"]) {
-			assert(client.includes(line), `the battle log must report ${line}`);
+		assert(shell.includes('serverProblem'), 'refusals need their own path');
+	});
+
+	it('should load the battle engine and its effects', () => {
+		const html = fs.readFileSync(
+			path.resolve(__dirname, '../../../server/static/index.html'), 'utf8');
+		for (const src of ['/fakemon.js', '/battle-fx.js', '/battle.js']) {
+			assert(html.includes(`src="${src}"`), `index.html must load ${src}`);
 		}
+		// Order matters: battle.js reads what the other two define.
+		assert(html.indexOf('/fakemon.js') < html.indexOf('/battle-fx.js'));
+		assert(html.indexOf('/battle-fx.js') < html.indexOf('/battle.js'));
+	});
+
+	it('should have an animation for all 18 types in all 3 categories', () => {
+		const fx = fs.readFileSync(
+			path.resolve(__dirname, '../../../server/static/battle-fx.js'), 'utf8');
+		// The 18 types this game actually uses, taken from the dex itself rather
+		// than from the engine's list (which also carries Stellar and ???).
+		const types = [...new Set(FakemonIndex.species
+			.flatMap(name => dex.species.get(name).types))].sort();
+		const block = fx.slice(fx.indexOf('const TYPES = {'), fx.indexOf('const FALLBACK_TYPE'));
+		for (const type of types) {
+			assert(new RegExp(`\\n\\t${type}: \\{`).test(block),
+				`${type} needs its own look in battle-fx.js`);
+		}
+		for (const category of ['Physical', 'Special', 'Status']) {
+			assert(fx.includes(`${category}: {`), `${category} needs its own staging`);
+		}
+		assert.equal(types.length, 18, `expected 18 types, found ${types.length}`);
 	});
 });
 
@@ -1184,6 +1249,50 @@ describe('Fakemon: random teams and the bot', () => {
 		const result = await runBotBattle('[Fakemon] Random Doubles Battle', 'normal');
 		assert.equal(result.errors.length, 0, `bot made illegal choices: ${result.errors[0]}`);
 		assert(result.ended, 'the battle should finish');
+	});
+
+	it('should send its Pokemon out in sheet order when told to', () => {
+		// "Fixed order": the team sheet is the order, top to bottom, and the bot
+		// never switches by choice. The player sets this on the team it is given.
+		const bot = new FakemonBot({ name: 'T', difficulty: 'hard', seed: [1, 2, 3, 4], fixedOrder: true });
+		bot.setSide('p2');
+		const bench = ['Illusheep', 'Tigraith', 'Hallowisp', 'Sprank', 'Pumpini', 'Bloomlet']
+			.map((species, i) => ({
+				ident: `p2: ${species}`, details: `${species}, M`,
+				condition: '100/100', active: i === 0, moves: ['bulwark'],
+			}));
+		assert.equal(bot.decide({ teamPreview: true, side: { pokemon: bench } }), 'team 123456');
+
+		// The lead faints: the next one down comes in, not the best matchup.
+		bench[0].condition = '0 fnt';
+		bench[0].active = true;
+		const forced = bot.decide({ forceSwitch: [true], side: { pokemon: bench } });
+		assert.equal(forced, 'switch 2', `expected the next Pokemon down, got "${forced}"`);
+
+		// And it never walks out of a bad matchup on its own.
+		bot.observe('|switch|p1a: Pumpini|Pumpini, M|100/100');
+		for (let turn = 0; turn < 12; turn++) {
+			const choice = bot.decide({
+				active: [{ moves: [{ id: 'bulwark', move: 'Bulwark', target: 'self', pp: 5, maxpp: 5 }] }],
+				side: { name: 'T', id: 'p2', pokemon: bench },
+			});
+			assert.false(choice.startsWith('switch'), `fixed order must not switch: "${choice}"`);
+		}
+	});
+
+	it('should still switch freely when it is not told to', () => {
+		const bot = new FakemonBot({ name: 'T', difficulty: 'hard', seed: [9, 8, 7, 6] });
+		bot.setSide('p2');
+		const bench = ['Illusheep', 'Tigraith', 'Hallowisp']
+			.map((species, i) => ({
+				ident: `p2: ${species}`, details: `${species}, M`,
+				condition: i === 0 ? '0 fnt' : '100/100', active: i === 0, moves: ['bulwark'],
+			}));
+		const order = bot.decide({ teamPreview: true, side: { pokemon: bench } });
+		assert(/^team \d+$/.test(order), `expected a team order, got "${order}"`);
+		// The free bot ranks its bench, so it may pick either survivor.
+		const forced = bot.decide({ forceSwitch: [true], side: { pokemon: bench } });
+		assert(['switch 2', 'switch 3'].includes(forced), `unexpected choice "${forced}"`);
 	});
 
 	it('should ignore a Pokemon that is not on the field', () => {
@@ -1231,31 +1340,34 @@ describe('Fakemon: random teams and the bot', () => {
 });
 
 /** Runs a complete bot-vs-bot battle and reports what happened. */
-async function runBotBattle(formatid, difficulty) {
+async function runBotBattle(formatid, difficulty, seed = 1) {
 	const { BattleStream } = require('./../../../dist/sim');
 	const stream = new BattleStream();
 	const bots = {
-		p1: new FakemonBot({ name: 'AlphaBot', difficulty, seed: [1, 2, 3, 4] }),
-		p2: new FakemonBot({ name: 'ShadowMaster', difficulty, seed: [5, 6, 7, 8] }),
+		p1: new FakemonBot({ name: 'AlphaBot', difficulty, seed: [seed, 2, 3, 4] }),
+		p2: new FakemonBot({ name: 'ShadowMaster', difficulty, seed: [seed + 4, 6, 7, 8] }),
 	};
 	bots.p1.setSide('p1');
 	bots.p2.setSide('p2');
 
 	const lines = [];
 	const errors = [];
+	/** Kept whole, because `lines` is drained every loop. */
+	const all = [];
 	void (async () => {
 		for await (const chunk of stream) {
 			for (const line of chunk.split('\n')) {
 				lines.push(line);
+				all.push(line);
 				if (line.includes('|error|')) errors.push(line);
 			}
 		}
 	})();
 
 	// Fixed seeds keep this test deterministic.
-	const teamP1 = Teams.pack(Teams.generate(formatid, { seed: [1, 2, 3, 4] }));
-	const teamP2 = Teams.pack(Teams.generate(formatid, { seed: [5, 6, 7, 8] }));
-	void stream.write(`>start {"formatid":"${formatid}","seed":[9,8,7,6]}`);
+	const teamP1 = Teams.pack(Teams.generate(formatid, { seed: [seed, 2, 3, 4] }));
+	const teamP2 = Teams.pack(Teams.generate(formatid, { seed: [seed + 4, 6, 7, 8] }));
+	void stream.write(`>start {"formatid":"${formatid}","seed":[9,8,7,${seed}]}`);
 	void stream.write(`>player p1 {"name":"AlphaBot","team":"${teamP1}"}`);
 	void stream.write(`>player p2 {"name":"ShadowMaster","team":"${teamP2}"}`);
 
@@ -1275,5 +1387,5 @@ async function runBotBattle(formatid, difficulty) {
 		}
 	}
 	const sim = stream.battle;
-	return { turns: sim.turn, ended: sim.ended, winner: sim.winner, errors };
+	return { turns: sim.turn, ended: sim.ended, winner: sim.winner, errors, lines: all };
 }

@@ -1,7 +1,28 @@
 # Fakemon assets
 
-Placeholder images for the custom Pokémon system. Replace them with your own art
-at any time — **no code changes are needed**.
+Artwork for the custom Pokémon system. Replace anything here with your own at
+any time — **no code changes are needed**.
+
+## What is already drawn
+
+| | |
+| --- | --- |
+| 189 Pokémon | the artwork you supplied, trimmed and fitted (`pokemon/`, `pokemon-icons/`) |
+| 240 items | pixel art generated from each item's own name and effect (`items/`, `mega/`) |
+
+Both are reproducible, so a new Pokémon or item does not need hand work:
+
+```bash
+# Drop new Pokémon PNGs (named after the species) into a folder, then:
+python3 tools/fakemon/art/install-pokemon-art.py <that folder>
+
+# Redraw every item icon (reads the item list from the built client bundle):
+python3 tools/fakemon/art/make_items.py
+```
+
+`tools/fakemon/art/shapes.py` holds the ~59 shapes an item icon can be drawn
+as, and `make_items.py` maps a word in the item's name to one of them. Adding a
+shape, or pointing a word at a different one, is a couple of lines.
 
 ## Where the paths come from
 
@@ -35,9 +56,10 @@ A file is named after the entry's **ID**: lowercase, letters and digits only.
 | `Sugar Pile` | `assets/abilities/sugarpile.png` |
 | `Hallowispite` | `assets/mega/hallowispite.png` |
 
-`manifest.json` lists all 1686 expected paths, so you can work through them
-one by one. Drop a file in with the right name and it is picked up
-automatically; anything still missing keeps using `placeholder.png`.
+`manifest.json` lists every expected path. Drop a file in with the right name
+and it is picked up automatically; anything missing falls back to
+`placeholder.png`, so the game always renders. `node tools/fakemon/check.js`
+reports what is still missing.
 
 ## Sizes
 
